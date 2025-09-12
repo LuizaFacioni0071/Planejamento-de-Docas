@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- LÓGICA DE TEMPO REAL PARA A TELA 'HOJE' ---
-    const socket = io('http://localhost:3000');
+    const socket = io('https://planejamento-docas.onrender.com');
     let tasks = [];
     let boardData = {};
     const timeSlots = [];
@@ -281,4 +281,5 @@ document.addEventListener('DOMContentLoaded', () => {
             slider.scrollLeft = scrollLeft - walk;
         });
     }
+
 });
