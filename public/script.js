@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA DE NAVEGAÇÃO E BOTÕES ---
     const navLinks = document.querySelectorAll('.main-nav a');
     const views = document.querySelectorAll('.view');
-
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -16,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetViewId === 'view-tomorrow') fetchAndRenderTomorrow();
         });
     });
-
     document.getElementById('generate-report-btn').addEventListener('click', async () => {
         try {
             const response = await fetch('/api/gerar-relatorio');
@@ -40,17 +38,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('connect_error', (err) => {
         console.error("Falha na conexão com o servidor de tempo real!", err.message);
-        alert("Não foi possível conectar ao servidor em tempo real. Verifique os logs no Render.");
+        alert("Não foi possível conectar ao servidor em tempo real.");
     });
-
     socket.on('board:init', (initialState) => {
-        console.log("Recebido estado inicial do quadro do servidor.");
         tasks = initialState.tasks;
         boardData = initialState.boardData;
         renderBoard();
     });
     socket.on('board:updated', (newState) => {
-        console.log("Quadro foi atualizado por outro utilizador. A redesenhar...");
         tasks = newState.tasks;
         boardData = newState.boardData;
         renderBoard();
@@ -285,3 +280,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
