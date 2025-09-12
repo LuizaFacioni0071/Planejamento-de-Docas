@@ -6,18 +6,19 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 
-// --- MODO DE DEPURACÃO ---
-// Mude para 'false' quando tudo estiver a funcionar para um terminal mais limpo.
-const DEBUG_MODE = true;
-
 const app = express();
 app.use(cors());
+
+// Serve os ficheiros estáticos (HTML, CSS, JS do cliente) da pasta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
+
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+// Define o caminho para o disco persistente do Render ou para a pasta local
 const HISTORICO_PATH = process.env.RENDER ? '/data/historico.json' : './historico.json';
 let historicoDeTarefas = carregarHistorico();
+
 let boardState = { tasks: [], boardData: getBoardData() }; 
 let yesterdayTasks = [];
 let tomorrowTasks = [];
@@ -50,7 +51,6 @@ function salvarHistorico() {
             historicoDeTarefas[task.id] = task;
         });
         fs.writeFileSync(HISTORICO_PATH, JSON.stringify(historicoDeTarefas, null, 2));
-        if (DEBUG_MODE) console.log("Histórico de tarefas salvo.");
     } catch (error) {
         console.error("Erro ao salvar o histórico:", error);
     }
@@ -58,10 +58,9 @@ function salvarHistorico() {
 
 function processLocalSheetData() {
     try {
-        if (DEBUG_MODE) console.log('\n--- INICIANDO DIAGNÓSTICO DETALHADO ---');
         const filePath = path.join(__dirname, 'agendamentos.xlsx');
         if (!fs.existsSync(filePath)) {
-            console.error(`[FALHA CRÍTICA] Ficheiro da planilha não encontrado em: ${filePath}`);
+            console.error(`ERRO: Ficheiro da planilha não encontrado em ${filePath}`);
             return;
         }
 
@@ -69,91 +68,24 @@ function processLocalSheetData() {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const allTasksData = xlsx.utils.sheet_to_json(sheet);
 
-        if (!allTasksData || allTasksData.length === 0) {
-            console.log('[INFO] Nenhum dado encontrado na planilha.');
-            return;
-        }
-        if (DEBUG_MODE) console.log(`[INFO] Encontradas ${allTasksData.length} linhas na planilha para processar.`);
-
-        const allTasks = parseSheetData(allTasksData);
+        const allTasksMap = new Map(Object.entries(historicoDeTarefas));
+        const sheetTasks = parseSheetData(allTasksData);
+        sheetTasks.forEach(task => allTasksMap.set(task.id, task));
+        const allTasks = Array.from(allTasksMap.values());
         
         const hoje = new Date();
         const ontem = new Date(); ontem.setDate(hoje.getDate() - 1);
         const amanha = new Date(); amanha.setDate(hoje.getDate() + 1);
-        
-        if (DEBUG_MODE) {
-            console.log(`\n[INFO] Data de referência para HOJE: ${hoje.toLocaleDateString('pt-BR')}`);
-        }
-        
+
         const todayTasks = allTasks.filter(task => isSameDay(task.dataCompleta, hoje));
         yesterdayTasks = allTasks.filter(task => isSameDay(task.dataCompleta, ontem));
         tomorrowTasks = allTasks.filter(task => isSameDay(task.dataCompleta, amanha));
         
-        todayTasks.forEach(task => {
-            if (historicoDeTarefas[task.id]) {
-                Object.assign(task, historicoDeTarefas[task.id]);
-            }
-        });
-
         boardState = { tasks: todayTasks, boardData: getBoardData() };
-        console.log(`\n--- RESULTADO FINAL DO DIAGNÓSTICO ---`);
         console.log(`Dados processados: ${yesterdayTasks.length} de ontem, ${todayTasks.length} de hoje, ${tomorrowTasks.length} de amanhã.`);
-
     } catch (error) {
-        console.error("[FALHA CRÍTICA] Erro ao processar a planilha local:", error);
+        console.error("ERRO ao ler a planilha local:", error.message);
     }
-}
-
-function parseSheetData(sheetData) {
-    if (DEBUG_MODE) console.log('\n--- A ANALISAR LINHAS INDIVIDUALMENTE ---');
-    return sheetData.map((row, index) => {
-        if (DEBUG_MODE) console.log(`\n[A analisar Linha ${index + 2}]`);
-        if (DEBUG_MODE) console.log('  > Dados brutos da linha:', row);
-
-        const upperCaseRow = {};
-        for (const key in row) { upperCaseRow[key.toUpperCase().trim()] = row[key]; }
-
-        if (DEBUG_MODE) console.log('  > Cabeçalhos encontrados (em maiúsculas):', Object.keys(upperCaseRow));
-
-        if (!upperCaseRow['DATA_AGENDAMENTO']) {
-            if (DEBUG_MODE) console.warn(`  > REJEITADO: Coluna 'DATA_AGENDAMENTO' não encontrada.`);
-            return null;
-        }
-
-        const dataAgendamento = new Date(upperCaseRow['DATA_AGENDAMENTO']);
-        if (isNaN(dataAgendamento.getTime())) {
-            if (DEBUG_MODE) console.warn(`  > REJEITADO: O valor '${upperCaseRow['DATA_AGENDAMENTO']}' não é uma data válida.`);
-            return null;
-        }
-        if (DEBUG_MODE) console.log(`  > Data interpretada: ${dataAgendamento.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`);
-
-        const cliente = upperCaseRow['CLIENTE'];
-        if (!cliente) {
-            if (DEBUG_MODE) console.warn(`  > REJEITADO: Coluna 'CLIENTE' não encontrada ou vazia.`);
-            return null;
-        }
-
-        const normalizedCliente = String(cliente).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const taskId = `${dataAgendamento.toISOString()}-${normalizedCliente}`;
-
-        const horas = String(dataAgendamento.getHours()).padStart(2, '0');
-        const minutos = String(dataAgendamento.getMinutes()).padStart(2, '0');
-        
-        const task = {
-            id: taskId,
-            dataCompleta: dataAgendamento,
-            pedido: upperCaseRow['NUMERO_PEDIDO'] || taskId,
-            cliente: cliente,
-            tipo: upperCaseRow['SERVIÇO'],
-            horarioSugerido: `${horas}:${minutos}`,
-            status: 'Aguardando',
-            horaEntrada: null,
-            horaFinalizacao: null,
-            assignedTo: null
-        };
-        if (DEBUG_MODE) console.log(`  > ACEITE: Tarefa criada para '${task.cliente}' com ID único: ${task.id}`);
-        return task;
-    }).filter(task => task);
 }
 
 processLocalSheetData();
@@ -173,7 +105,7 @@ app.get('/api/gerar-relatorio', (req, res) => {
             const monthYear = new Date(task.dataCompleta).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
             if (!acc[monthYear]) acc[monthYear] = [];
             acc[monthYear].push({
-                'Data': new Date(task.dataCompleta).toLocaleDateString('pt-BR'), 'Hora Agendada': task.horarioSugerido, 'Cliente': task.cliente, 'Tipo': task.tipo, 'Status': task.status, 'Nº Pedido': task.id, 'Hora de Início': task.horaEntrada ? new Date(task.horaEntrada).toLocaleTimeString('pt-BR') : 'N/A', 'Hora de Fim': task.horaFinalizacao ? new Date(task.horaFinalizacao).toLocaleTimeString('pt-BR') : 'N/A'
+                'Data': new Date(task.dataCompleta).toLocaleDateString('pt-BR'), 'Hora Agendada': task.horarioSugerido, 'Cliente': task.cliente, 'Tipo': task.tipo, 'Status': task.status, 'ID Único': task.id, 'Hora de Início': task.horaEntrada ? new Date(task.horaEntrada).toLocaleTimeString('pt-BR') : 'N/A', 'Hora de Fim': task.horaFinalizacao ? new Date(task.horaFinalizacao).toLocaleTimeString('pt-BR') : 'N/A'
             });
             return acc;
         }, {});
@@ -210,6 +142,24 @@ server.listen(PORT, () => {
     console.log(`Servidor iniciado na porta ${PORT}`);
 });
 
+function parseSheetData(sheetData) {
+    return sheetData.map((row, index) => {
+        const upperCaseRow = {};
+        for (const key in row) { upperCaseRow[key.toUpperCase().trim()] = row[key]; }
+        const dataAgendamento = new Date(upperCaseRow['DATA_AGENDAMENTO']);
+        if (!upperCaseRow['DATA_AGENDAMENTO'] || isNaN(dataAgendamento.getTime())) return null;
+        const cliente = upperCaseRow['CLIENTE'];
+        if (!cliente) return null;
+        
+        const normalizedCliente = String(cliente).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const taskId = `${dataAgendamento.toISOString()}-${normalizedCliente}`;
+        const horas = String(dataAgendamento.getHours()).padStart(2, '0');
+        const minutos = String(dataAgendamento.getMinutes()).padStart(2, '0');
+        return {
+            id: taskId, dataCompleta: dataAgendamento, pedido: upperCaseRow['NUMERO_PEDIDO'] || taskId, cliente: cliente, tipo: upperCaseRow['SERVIÇO'], horarioSugerido: `${horas}:${minutos}`, status: 'Aguardando', horaEntrada: null, horaFinalizacao: null, assignedTo: null
+        };
+    }).filter(task => task && task.cliente && task.tipo);
+}
 function getBoardData() {
     return {
         'CD1': { 'Módulo 1': [{ id: 'doca-1', numero: 'Doca 01', status: 'livre' }, { id: 'doca-2', numero: 'Doca 02', status: 'livre' }], 'Módulo 2': [{ id: 'doca-3', numero: 'Doca 03', status: 'livre' }] },
