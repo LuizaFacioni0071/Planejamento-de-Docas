@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- LÓGICA DE NAVEGAÇÃO ---
+    // --- LÓGICA DE NAVEGAÇÃO E BOTÕES ---
     const navLinks = document.querySelectorAll('.main-nav a');
     const views = document.querySelectorAll('.view');
 
@@ -7,21 +7,29 @@ document.addEventListener('DOMContentLoaded', () => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const targetViewId = link.id.replace('nav-', 'view-');
-            
             navLinks.forEach(l => l.classList.remove('active'));
             link.classList.add('active');
-
             views.forEach(view => {
                 view.style.display = view.id === targetViewId ? 'flex' : 'none';
             });
-
             if (targetViewId === 'view-yesterday') fetchAndRenderYesterday();
             if (targetViewId === 'view-tomorrow') fetchAndRenderTomorrow();
         });
     });
 
+    document.getElementById('generate-report-btn').addEventListener('click', async () => {
+        try {
+            const response = await fetch('/api/gerar-relatorio');
+            const message = await response.text();
+            alert(message);
+        } catch (error) {
+            console.error("Erro ao contactar a API de relatório:", error);
+            alert("Falha ao gerar o relatório. Verifique a consola do servidor.");
+        }
+    });
+
     // --- LÓGICA DE TEMPO REAL PARA A TELA 'HOJE' ---
-    const socket = io('http://localhost:3000');
+    const socket = io();
     let tasks = [];
     let boardData = {};
     const timeSlots = [];
@@ -30,12 +38,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     let currentTaskInModal = null;
 
+    socket.on('connect_error', (err) => {
+        console.error("Falha na conexão com o servidor de tempo real!", err.message);
+        alert("Não foi possível conectar ao servidor em tempo real. Verifique os logs no Render.");
+    });
+
     socket.on('board:init', (initialState) => {
+        console.log("Recebido estado inicial do quadro do servidor.");
         tasks = initialState.tasks;
         boardData = initialState.boardData;
         renderBoard();
     });
     socket.on('board:updated', (newState) => {
+        console.log("Quadro foi atualizado por outro utilizador. A redesenhar...");
         tasks = newState.tasks;
         boardData = newState.boardData;
         renderBoard();
@@ -44,61 +59,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FUNÇÕES PARA BUSCAR E RENDERIZAR AS NOVAS TELAS ---
     async function fetchAndRenderYesterday() {
         try {
-            const response = await fetch('http://localhost:3000/api/yesterday');
+            const response = await fetch('/api/yesterday');
             const yesterdayTasks = await response.json();
             const container = document.getElementById('yesterday-content');
-            container.innerHTML = `
-                <div class="report-column">
-                    <h3>Finalizados</h3>
-                    <div id="yesterday-finalizados"></div>
-                </div>
-                <div class="report-column">
-                    <h3>Pendentes</h3>
-                    <div id="yesterday-pendentes"></div>
-                </div>
-            `;
+            container.innerHTML = `<div class="report-column"><h3>Finalizados</h3><div id="yesterday-finalizados"></div></div><div class="report-column"><h3>Pendentes</h3><div id="yesterday-pendentes"></div></div>`;
             const finalizadosContainer = document.getElementById('yesterday-finalizados');
             const pendentesContainer = document.getElementById('yesterday-pendentes');
-            
             yesterdayTasks.forEach(task => {
                 const item = document.createElement('div');
                 item.className = 'report-item';
-                item.innerHTML = `<p><strong>${task.cliente}</strong> (${task.tipo})</p>`;
-                if (task.status === 'Finalizado') {
-                    finalizadosContainer.appendChild(item);
-                } else {
-                    pendentesContainer.appendChild(item);
-                }
+                item.innerHTML = `<p><strong>${task.cliente}</strong> (${task.tipo}) - Status: ${task.status}</p>`;
+                if (task.status === 'Finalizado') { finalizadosContainer.appendChild(item); } else { pendentesContainer.appendChild(item); }
             });
-        } catch (error) {
-            console.error("Erro ao buscar dados de ontem:", error);
-        }
+        } catch (error) { console.error("Erro ao buscar dados de ontem:", error); }
     }
 
     async function fetchAndRenderTomorrow() {
         try {
-            const response = await fetch('http://localhost:3000/api/tomorrow');
+            const response = await fetch('/api/tomorrow');
             const tomorrowTasks = await response.json();
             const container = document.getElementById('tomorrow-content');
-            container.innerHTML = `
-                <div class="report-column">
-                    <h3>Agendamentos Confirmados</h3>
-                    <div id="tomorrow-agendados"></div>
-                </div>
-            `;
+            container.innerHTML = `<div class="report-column"><h3>Agendamentos Confirmados</h3><div id="tomorrow-agendados"></div></div>`;
             const agendadosContainer = document.getElementById('tomorrow-agendados');
-            
             tomorrowTasks.sort((a,b) => a.horarioSugerido.localeCompare(b.horarioSugerido));
-            
             tomorrowTasks.forEach(task => {
                 const item = document.createElement('div');
                 item.className = 'report-item';
                 item.innerHTML = `<p><strong>${task.horarioSugerido} - ${task.cliente}</strong> (${task.tipo})</p>`;
                 agendadosContainer.appendChild(item);
             });
-        } catch (error) {
-            console.error("Erro ao buscar dados de amanhã:", error);
-        }
+        } catch (error) { console.error("Erro ao buscar dados de amanhã:", error); }
     }
 
     // --- FUNÇÕES DE RENDERIZAÇÃO E LÓGICA DA TELA 'HOJE' ---
@@ -113,9 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const unassignedTasks = tasks.filter(task => !task.assignedTo && task.status !== 'Finalizado');
         const tasksByTime = unassignedTasks.reduce((acc, task) => {
             const time = task.horarioSugerido;
-            if (!acc[time]) acc[time] = [];
-            acc[time].push(task);
-            return acc;
+            if (!acc[time]) acc[time] = []; acc[time].push(task); return acc;
         }, {});
         const sortedTimes = Object.keys(tasksByTime).sort((a, b) => a.localeCompare(b));
         sortedTimes.forEach(time => {
@@ -143,11 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 dropZone.dataset.dockId = dock.id;
                 dropZone.dataset.time = time;
                 const assignedTask = tasks.find(t => t.assignedTo?.dockId === dock.id && t.assignedTo?.time === time);
-                if (assignedTask) {
-                    dropZone.appendChild(createTaskCard(assignedTask));
-                } else {
-                    dropZone.innerHTML = `<span class="time-watermark">${time}</span>`;
-                }
+                if (assignedTask) { dropZone.appendChild(createTaskCard(assignedTask)); } else { dropZone.innerHTML = `<span class="time-watermark">${time}</span>`; }
                 dockColumn.appendChild(dropZone);
             });
             dockBoard.appendChild(dockColumn);
@@ -159,10 +143,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function initializeSortable() {
         const draggableContainers = [...document.querySelectorAll('.task-list-group'), ...document.querySelectorAll('.drop-zone')];
         draggableContainers.forEach(container => {
-            new Sortable(container, {
-                group: 'shared',
-                animation: 150,
-                filter: '.time-watermark',
+            if(container.sortableInstance) container.sortableInstance.destroy();
+            container.sortableInstance = new Sortable(container, {
+                group: 'shared', animation: 150, filter: '.time-watermark',
                 onEnd: (evt) => {
                     const taskId = evt.item.id;
                     const targetContainer = evt.to;
@@ -173,19 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         const targetTime = targetContainer.dataset.time;
                         const dock = findDockById(targetDockId);
                         if (dock.status !== 'livre') { renderBoard(); return; }
-                        if (task.assignedTo) {
-                            const oldDock = findDockById(task.assignedTo.dockId);
-                            if (oldDock) { oldDock.status = 'livre'; oldDock.taskIdAtual = null; }
-                        }
+                        if (task.assignedTo) { const oldDock = findDockById(task.assignedTo.dockId); if (oldDock) { oldDock.status = 'livre'; oldDock.taskIdAtual = null; } }
                         task.assignedTo = { dockId: targetDockId, time: targetTime };
                         task.status = 'Agendado';
                         dock.status = 'ocupada';
                         dock.taskIdAtual = task.id;
                     } else {
-                        if (task.assignedTo) {
-                            const oldDock = findDockById(task.assignedTo.dockId);
-                            if (oldDock) { oldDock.status = 'livre'; oldDock.taskIdAtual = null; }
-                        }
+                        if (task.assignedTo) { const oldDock = findDockById(task.assignedTo.dockId); if (oldDock) { oldDock.status = 'livre'; oldDock.taskIdAtual = null; } }
                         task.assignedTo = null;
                         task.status = 'Aguardando';
                     }
@@ -197,15 +174,25 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.task-card').forEach(card => {
             card.addEventListener('click', () => openModal(findTaskById(card.id)));
         });
+        document.querySelectorAll('.no-show-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const taskId = e.target.dataset.taskId;
+                const task = findTaskById(taskId);
+                if (task && confirm(`Tem a certeza que deseja marcar o agendamento de "${task.cliente}" como NÃO COMPARECEU?`)) {
+                    task.status = 'Não Compareceu';
+                    socket.emit('board:update', { tasks, boardData });
+                    renderBoard();
+                }
+            });
+        });
     }
 
     function renderFinalizados() {
         const finalList = document.getElementById('agenda-list');
         finalList.innerHTML = '';
         const finalizadosTasks = tasks.filter(task => task.status === 'Finalizado').sort((a, b) => new Date(b.horaFinalizacao) - new Date(a.horaFinalizacao));
-        if (finalizadosTasks.length === 0) {
-            finalList.innerHTML = '<p>Nenhum processo finalizado hoje.</p>';
-        } else {
+        if (finalizadosTasks.length === 0) { finalList.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } else {
             finalizadosTasks.forEach(task => {
                 const finalItem = document.createElement('div');
                 finalItem.className = `agenda-item ${task.tipo.toLowerCase()}`;
@@ -219,9 +206,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createTaskCard(task) {
         const card = document.createElement('div');
-        card.className = `task-card ${task.tipo ? task.tipo.toLowerCase() : ''}`;
+        const statusClass = task.status === 'Não Compareceu' ? 'no-show' : '';
+        card.className = `task-card ${task.tipo ? task.tipo.toLowerCase() : ''} ${statusClass}`;
         card.id = task.id;
-        card.innerHTML = `<p class="task-client">${task.cliente}</p><p class="task-details"><strong>${task.tipo}</strong></p><p class="task-suggestion">Agendado para: <strong>${task.horarioSugerido}</strong></p>`;
+        let actionButton = '';
+        if (!task.assignedTo && task.status === 'Aguardando') {
+            actionButton = `<div class="card-actions"><button class="no-show-btn" data-task-id="${task.id}">Não Compareceu</button></div>`;
+        }
+        card.innerHTML = `<p class="task-client">${task.cliente}</p><p class="task-details"><strong>${task.tipo}</strong></p><p class="task-suggestion">Agendado para: <strong>${task.horarioSugerido}</strong></p>${actionButton}`;
         return card;
     }
 
@@ -251,9 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.emit('board:update', { tasks, boardData });
             closeModalAndRefresh();
             renderBoard();
-        } else {
-            alert('Um pedido precisa ser alocado a uma doca para ser iniciado.');
-        }
+        } else { alert('Um pedido precisa ser alocado a uma doca para ser iniciado.'); }
     });
 
     document.getElementById('end-process-btn').addEventListener('click', () => {
@@ -268,33 +258,12 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.emit('board:update', { tasks, boardData });
             closeModalAndRefresh();
             renderBoard();
-        } else {
-            alert('O processo precisa ser iniciado antes de ser finalizado.');
-        }
+        } else { alert('O processo precisa ser iniciado antes de ser finalizado.'); }
     });
 
     function findTaskById(taskId) { return tasks.find(task => task.id === taskId); }
-    
-    function findDockLocation(dockId) {
-        for (const cdName in boardData) {
-            for (const moduleName in boardData[cdName]) {
-                if (boardData[cdName][moduleName].some(d => d.id === dockId)) {
-                    return { cd: cdName, modulo: moduleName };
-                }
-            }
-        }
-        return { cd: 'N/A', modulo: 'N/A' };
-    }
-    
-    function findDockById(dockId) {
-        for (const cd of Object.values(boardData)) {
-            for (const modulo of Object.values(cd)) {
-                const found = modulo.find(d => d.id === dockId);
-                if (found) return found;
-            }
-        }
-        return null;
-    }
+    function findDockLocation(dockId) { for (const cdName in boardData) { for (const moduleName in boardData[cdName]) { if (boardData[cdName][moduleName].some(d => d.id === dockId)) { return { cd: cdName, modulo: moduleName }; } } } return { cd: 'N/A', modulo: 'N/A' }; }
+    function findDockById(dockId) { for (const cd of Object.values(boardData)) { for (const modulo of Object.values(cd)) { const found = modulo.find(d => d.id === dockId); if (found) return found; } } return null; }
     
     const slider = document.querySelector('.dock-board-container');
     let isDown = false;
@@ -303,10 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (slider) {
         slider.addEventListener('mousedown', (e) => {
             if (e.target.closest('.task-card')) return;
-            isDown = true;
-            slider.classList.add('active');
-            startX = e.pageX - slider.offsetLeft;
-            scrollLeft = slider.scrollLeft;
+            isDown = true; slider.classList.add('active'); startX = e.pageX - slider.offsetLeft; scrollLeft = slider.scrollLeft;
         });
         slider.addEventListener('mouseleave', () => { isDown = false; slider.classList.remove('active'); });
         slider.addEventListener('mouseup', () => { isDown = false; slider.classList.remove('active'); });
@@ -318,6 +284,4 @@ document.addEventListener('DOMContentLoaded', () => {
             slider.scrollLeft = scrollLeft - walk;
         });
     }
-
-    // A chamada inicial agora é feita implicitamente pela conexão do socket
 });
