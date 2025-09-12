@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planejamento de Docas</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Sistema de Planejamento de Docas</h1>
+        <nav class="main-nav">
+            <a href="#" id="nav-yesterday">Resumo de Ontem</a>
+            <a href="#" id="nav-today" class="active">Planejamento de Hoje</a>
+            <a href="#" id="nav-tomorrow">Previsão de Amanhã</a>
+        </nav>
+        <div class="header-actions">
+            <button id="generate-report-btn">Gerar Relatório Mensal</button>
+        </div>
+    </header>
+
+    <main id="view-today" class="container view">
+        <div id="unassigned-tasks" class="unassigned-container">
+            <h2>Pedidos do Dia</h2>
+            <div id="unassigned-list" class="task-list"></div>
+        </div>
+        <div id="dock-board" class="dock-board-container"></div>
+        <div id="daily-agenda" class="daily-agenda-container">
+            <h2>Finalizados do Dia</h2>
+            <div id="agenda-list" class="agenda-list"></div>
+        </div>
+    </main>
+
+    <main id="view-yesterday" class="container-simple view" style="display: none;">
+        <h2>Resumo de Ontem</h2>
+        <div id="yesterday-content" class="report-container"></div>
+    </main>
+
+    <main id="view-tomorrow" class="container-simple view" style="display: none;">
+        <h2>Previsão de Amanhã</h2>
+        <div id="tomorrow-content" class="report-container"></div>
+    </main>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 id="modal-title">Detalhes do Processo</h2>
+            <p><strong>Cliente:</strong> <span id="modal-cliente"></span></p>
+            <p><strong>Pedido:</strong> <span id="modal-pedido"></span></p>
+            <p><strong>Status:</strong> <span id="modal-status"></span></p>
+            <p><strong>Entrada na Doca:</strong> <span id="modal-entrada"></span></p>
+            <p><strong>Finalização:</strong> <span id="modal-finalizacao"></span></p>
+            <div class="modal-actions">
+                <button id="start-process-btn">Iniciar Processo</button>
+                <button id="end-process-btn">Finalizar Processo</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
