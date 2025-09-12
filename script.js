@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-
     // --- LÓGICA DE NAVEGAÇÃO E BOTÕES ---
     const navLinks = document.querySelectorAll('.main-nav a');
     const views = document.querySelectorAll('.view');
@@ -8,14 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const targetViewId = link.id.replace('nav-', 'view-');
-            
             navLinks.forEach(l => l.classList.remove('active'));
             link.classList.add('active');
-
             views.forEach(view => {
                 view.style.display = view.id === targetViewId ? 'flex' : 'none';
             });
-
             if (targetViewId === 'view-yesterday') fetchAndRenderYesterday();
             if (targetViewId === 'view-tomorrow') fetchAndRenderTomorrow();
         });
@@ -23,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('generate-report-btn').addEventListener('click', async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/gerar-relatorio');
+            // Usa URL relativa, que funciona tanto localmente como no Render
+            const response = await fetch('/api/gerar-relatorio');
             const message = await response.text();
             alert(message);
         } catch (error) {
@@ -33,7 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- LÓGICA DE TEMPO REAL PARA A TELA 'HOJE' ---
-    const socket = io('https://planejamento-docas.onrender.com');
+    // A URL é omitida, o que faz com que ele se conecte ao servidor que serviu a página.
+    // Isto funciona perfeitamente tanto em localhost como no Render.
+    const socket = io();
     let tasks = [];
     let boardData = {};
     const timeSlots = [];
@@ -56,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FUNÇÕES PARA BUSCAR E RENDERIZAR AS NOVAS TELAS ---
     async function fetchAndRenderYesterday() {
         try {
-            const response = await fetch('http://localhost:3000/api/yesterday');
+            const response = await fetch('/api/yesterday');
             const yesterdayTasks = await response.json();
             const container = document.getElementById('yesterday-content');
             container.innerHTML = `<div class="report-column"><h3>Finalizados</h3><div id="yesterday-finalizados"></div></div><div class="report-column"><h3>Pendentes</h3><div id="yesterday-pendentes"></div></div>`;
@@ -73,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchAndRenderTomorrow() {
         try {
-            const response = await fetch('http://localhost:3000/api/tomorrow');
+            const response = await fetch('/api/tomorrow');
             const tomorrowTasks = await response.json();
             const container = document.getElementById('tomorrow-content');
             container.innerHTML = `<div class="report-column"><h3>Agendamentos Confirmados</h3><div id="tomorrow-agendados"></div></div>`;
@@ -140,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function initializeSortable() {
         const draggableContainers = [...document.querySelectorAll('.task-list-group'), ...document.querySelectorAll('.drop-zone')];
         draggableContainers.forEach(container => {
-            if(container.sortableInstance) container.sortableInstance.destroy(); // Evita múltiplas inicializações
+            if(container.sortableInstance) container.sortableInstance.destroy();
             container.sortableInstance = new Sortable(container, {
                 group: 'shared', animation: 150, filter: '.time-watermark',
                 onEnd: (evt) => {
@@ -218,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!task) return;
         currentTaskInModal = task;
         document.getElementById('modal-cliente').textContent = task.cliente;
-        document.getElementById('modal-pedido').textContent = task.pedido;
+        document.getElementById('modal-pedido').textContent = task.id; // Alterado para task.id
         document.getElementById('modal-status').textContent = task.status;
         document.getElementById('modal-entrada').textContent = task.horaEntrada ? new Date(task.horaEntrada).toLocaleString('pt-BR') : 'N/A';
         document.getElementById('modal-finalizacao').textContent = task.horaFinalizacao ? new Date(task.horaFinalizacao).toLocaleString('pt-BR') : 'N/A';
@@ -281,5 +280,5 @@ document.addEventListener('DOMContentLoaded', () => {
             slider.scrollLeft = scrollLeft - walk;
         });
     }
-
 });
+
