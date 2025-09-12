@@ -1,10 +1,9 @@
 {
   "name": "planejamento-docas",
   "version": "1.0.0",
-  "description": "",
+  "description": "Sistema de planejamento de docas em tempo real",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
   "keywords": [],
@@ -12,8 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "socket.io": "^4.8.1",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
     "xlsx": "^0.18.5"
   }
 }
