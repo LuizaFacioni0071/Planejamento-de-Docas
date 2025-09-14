@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planejamento de Docas - ALF</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <button id="hamburger-btn" class="hamburger-btn">☰</button>
+            <h1>Planejamento de Docas - ALF</h1>
+        </div>
+        <nav id="main-nav-desktop" class="main-nav">
+            <a href="#" id="nav-yesterday">Resumo de Ontem</a>
+            <a href="#" id="nav-today" class="active">Planejamento de Hoje</a>
+            <a href="#" id="nav-tomorrow">Previsão de Amanhã</a>
+        </nav>
+    </header>
+
+    <div id="mobile-menu" class="mobile-menu">
+        <div class="mobile-menu-header">
+            <span>Navegação</span>
+            <button id="close-menu-btn" class="close-menu-btn">&times;</button>
+        </div>
+        <div id="mobile-menu-content"></div>
+    </div>
+    <div id="overlay" class="overlay"></div>
+
+    <div id="app-container"></div>
+    
+    <div id="modal" class="modal">
+        <div id="modal-content" class="modal-content"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
