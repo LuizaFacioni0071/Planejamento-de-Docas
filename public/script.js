@@ -422,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openMobileMenu() { mobileMenu.classList.add('open'); overlay.classList.add('open'); }
     function closeMobileMenu() { mobileMenu.classList.remove('open'); overlay.classList.remove('open'); }
     hamburgerBtn.addEventListener('click', openMobileMenu);
-    closeMenuBtn.addEventListener('click', closeMenuBtn);
+    closeMenuBtn.addEventListener('click', closeMobileMenu);
     overlay.addEventListener('click', closeMobileMenu);
 
     // LÓGICA DE ARRASTAR PARA NAVEGAR
@@ -457,4 +457,3 @@ document.addEventListener('DOMContentLoaded', () => {
     const mobileNav = document.getElementById('mobile-menu-content');
     if (mobileNav) mobileNav.addEventListener('click', handleNavClick);
 });
-
