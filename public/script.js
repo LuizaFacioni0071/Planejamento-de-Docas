@@ -28,10 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // NAVEGAÇÃO
-    function setupDayNavigation() {
-        // Esta função agora está vazia e não é mais necessária,
-        // pois a lógica foi movida para event listeners mais robustos.
-    }
+    function setupDayNavigation() {}
 
     const mainNavDesktop = document.getElementById('main-nav-desktop');
     if (mainNavDesktop) {
@@ -92,15 +89,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderMobileTodayView(tasks) {
         appContainer.innerHTML = `
             <main id="view-today" class="container view">
-                <div id="content-pedidos" class="unassigned-container"></div>
-                <div id="content-docas" class="dock-board-container"></div>
-                <div id="content-finalizados" class="daily-agenda-container"></div>
+                <nav class="mobile-view-nav">
+                    <button id="mobile-tab-pedidos" class="mobile-tab-btn active">Pedidos</button>
+                    <button id="mobile-tab-docas" class="mobile-tab-btn">Docas</button>
+                    <button id="mobile-tab-finalizados" class="mobile-tab-btn">Finalizados</button>
+                </nav>
+                <div class="mobile-view-content">
+                    <div id="content-pedidos" class="unassigned-container active"></div>
+                    <div id="content-docas" class="dock-board-container"></div>
+                    <div id="content-finalizados" class="daily-agenda-container"></div>
+                </div>
             </main>`;
-        renderPendingTasks(tasks, document.getElementById('content-pedidos'));
+        renderPendingTasks(tasks, document.querySelector('#content-pedidos'));
         renderDockBoard(tasks, document.getElementById('content-docas'));
-        renderFinalizados(tasks, document.getElementById('content-finalizados'));
+        renderFinalizados(tasks, document.querySelector('#content-finalizados'));
         initializeMobileInteractions();
     }
+
 
     async function renderReportView(day) {
         const viewTitle = day === 'yesterday' ? 'Resumo de Ontem' : 'Previsão de Amanhã';
@@ -139,28 +144,42 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function renderPendingTasks(tasks, container) {
         if (!container) return;
-        container.innerHTML = ''; 
-        // MODIFICADO: Inclui tarefas 'No Pátio' na lista de pendentes do celular
-        const unassignedTasks = tasks.filter(task => !task.assignedTo && (task.status === 'Aguardando' || task.status === 'Não Compareceu' || task.status === 'No Pátio'));
+        container.innerHTML = '<h2>Pedidos do Dia</h2>';
+        const list = document.createElement('div');
+        list.className = 'task-list';
+        container.appendChild(list);
+        const unassignedTasks = tasks.filter(task => (task.status === 'Aguardando' || task.status === 'Não Compareceu'));
         const tasksByTime = unassignedTasks.reduce((acc, task) => { const time = task.horarioSugerido; if (!acc[time]) acc[time] = []; acc[time].push(task); return acc; }, {});
         const sortedTimes = Object.keys(tasksByTime).sort((a, b) => a.localeCompare(b));
         sortedTimes.forEach(time => {
             const timeHeader = document.createElement('h3');
             timeHeader.className = 'time-group-header';
             timeHeader.textContent = time;
-            container.appendChild(timeHeader);
+            list.appendChild(timeHeader);
             const timeGroupList = document.createElement('div');
             timeGroupList.className = 'task-list-group';
             tasksByTime[time].forEach(task => timeGroupList.appendChild(createTaskCard(task)));
-            container.appendChild(timeGroupList);
+            list.appendChild(timeGroupList);
         });
     }
 
+    // MODIFICADO: Exibe também os cards finalizados no pátio
     function renderPatioTasks(tasks, container) {
         if (!container) return;
         container.innerHTML = ''; 
-        const patioTasks = tasks.filter(task => task.status === 'No Pátio');
-        patioTasks.sort((a, b) => a.cliente.localeCompare(b.cliente)); 
+        const patioTasks = tasks.filter(task =>
+            (task.status === 'No Pátio') ||
+            (task.status === 'Em Processo' && !task.assignedTo) ||
+            (task.status === 'Finalizado' && !task.assignedTo) // <-- Adicionado para manter a visualização
+        );
+
+        // Ordena para que os cards ativos fiquem no topo
+        patioTasks.sort((a, b) => {
+            if (a.status === 'Finalizado' && b.status !== 'Finalizado') return 1;
+            if (a.status !== 'Finalizado' && b.status === 'Finalizado') return -1;
+            return a.cliente.localeCompare(b.cliente);
+        });
+
         patioTasks.forEach(task => {
             container.appendChild(createTaskCard(task));
         });
@@ -169,6 +188,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderDockBoard(tasks, container) {
         if (!container) return;
         container.innerHTML = '';
+
+        // Adiciona processos do pátio na visão móvel
+        if (isMobile) {
+            const patioProcessTasks = tasks.filter(task => (task.status === 'No Pátio') || (task.status === 'Em Processo' && !task.assignedTo));
+            if (patioProcessTasks.length > 0) {
+                const patioColumn = document.createElement('div');
+                patioColumn.className = 'dock-column patio-process-column';
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'dock-column-header';
+                headerDiv.innerHTML = `<span>Pátio</span>`;
+                patioColumn.appendChild(headerDiv);
+
+                const listDiv = document.createElement('div');
+                listDiv.className = 'patio-process-list';
+                patioProcessTasks.forEach(task => {
+                    listDiv.appendChild(createTaskCard(task));
+                });
+                patioColumn.appendChild(listDiv);
+                container.appendChild(patioColumn);
+            }
+        }
+
         const allDocks = Object.values(boardData).flatMap(cd => Object.values(cd).flatMap(mod => mod));
         allDocks.forEach(dock => {
             const dockColumn = document.createElement('div');
@@ -201,9 +242,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderFinalizados(tasks, container) {
         if (!container) return;
-        container.innerHTML = ''; 
+        container.innerHTML = '<h2>Finalizados do Dia</h2>';
+        const list = document.createElement('div');
+        list.className = 'agenda-list';
+        container.appendChild(list);
+
         const finalizadosTasks = tasks.filter(task => task.status === 'Finalizado').sort((a, b) => new Date(b.horaFinalizacao) - new Date(a.horaFinalizacao));
-        if (finalizadosTasks.length === 0) { container.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
+        if (finalizadosTasks.length === 0) { list.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
         else {
             finalizadosTasks.forEach(task => {
                 const finalItem = document.createElement('div');
@@ -211,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const horaInicio = task.horaEntrada ? new Date(task.horaEntrada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
                 const horaFinal = task.horaFinalizacao ? new Date(task.horaFinalizacao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
                 finalItem.innerHTML = `<p class="agenda-item-header">${task.cliente}</p><p><strong>Início:</strong> ${horaInicio}</p><p><strong>Finalizado:</strong> ${horaFinal}</p>`;
-                container.appendChild(finalItem);
+                list.appendChild(finalItem);
             });
         }
     }
@@ -221,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let statusClass = '';
         if (task.status === 'Não Compareceu') statusClass = 'no-show non-draggable';
         if (task.status === 'Finalizado') statusClass += ' finalizado-na-grelha non-draggable';
+        if (task.status === 'Em Processo') statusClass += ' in-process';
         card.className = `task-card ${task.tipo ? task.tipo.toLowerCase() : ''} ${statusClass}`;
         card.id = task.id;
         const checkIcon = task.status === 'Finalizado' ? `<i class="fa-solid fa-circle-check check-icon"></i>` : '';
@@ -306,37 +352,31 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // INTERAÇÕES TELEMÓVEL
     function initializeMobileInteractions() {
-        // MODIFICADO: Lógica de clique dividida para agendamento vs. detalhes
-        document.querySelectorAll('#content-pedidos .task-card').forEach(card => {
-            const task = findTaskById(card.id);
-            if (task && task.status === 'Aguardando') {
-                card.addEventListener('click', (e) => {
-                    if(e.target.closest('button')) return;
+        const tabs = document.querySelectorAll('.mobile-tab-btn');
+        const contents = document.querySelectorAll('.mobile-view-content > div');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(`content-${tab.id.split('-')[2]}`).classList.add('active');
+            });
+        });
+
+        document.querySelectorAll('.task-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                const task = findTaskById(card.id);
+                if (task.status === 'Aguardando' || task.status === 'Não Compareceu') {
                     openScheduleModal(card.id);
-                });
-            } else { // Para tarefas 'No Pátio' ou 'Não Compareceu'
-                card.addEventListener('click', (e) => {
-                     if(e.target.closest('button')) return;
-                     openModal('details', card.id)
-                });
-            }
-        });
-        document.querySelectorAll('#content-docas .task-card, #content-finalizados .agenda-item').forEach(card => {
-            card.addEventListener('click', () => openModal('details', card.id));
-        });
-        document.querySelectorAll('.block-btn').forEach(button => {
-             button.addEventListener('click', handleBlockButtonClick);
-        });
-        document.querySelectorAll('.no-show-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const taskId = e.target.dataset.taskId;
-                const task = findTaskById(taskId);
-                if (task && confirm(`Marcar "${task.cliente}" como NÃO COMPARECEU?`)) {
-                    task.status = 'Não Compareceu';
-                    socket.emit('board:update', { tasks: allTasks, boardData });
+                } else {
+                    openModal('details', card.id);
                 }
             });
+        });
+
+        document.querySelectorAll('.block-btn').forEach(button => {
+             button.addEventListener('click', handleBlockButtonClick);
         });
     }
     
@@ -364,16 +404,16 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('end-process-btn').addEventListener('click', handleEndProcess);
         modal.style.display = 'block';
     }
-
+    
+    // MODIFICADO: Lista única de agendamento (Pátio + Docas)
     function openScheduleModal(taskId) {
         const task = findTaskById(taskId);
         if (!task) return;
         currentTaskInModal = task;
         const modalContent = document.getElementById('modal-content');
 
-        const patioButtonHTML = `<button class="schedule-option-btn schedule-patio-btn" data-task-id="${taskId}"><strong>Mover para o Pátio</strong></button>`;
+        let optionsHTML = `<button class="schedule-option-btn schedule-patio-btn" data-task-id="${taskId}" data-destination="patio"><strong>Pátio</strong></button>`;
 
-        let dockOptionsHTML = '';
         const now = new Date();
         const allDocks = Object.values(boardData).flatMap(cd => Object.values(cd).flatMap(mod => mod));
         
@@ -383,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const time = `${String(i).padStart(2, '0')}:00`;
                     const isOccupied = allTasks.some(t => t.assignedTo?.dockId === dock.id && t.assignedTo?.time === time);
                     if (!isOccupied) {
-                        dockOptionsHTML += `<button class="schedule-option-btn" data-task-id="${taskId}" data-dock-id="${dock.id}" data-time="${time}"><strong>${dock.numero}</strong> - Agendar às ${time}</button>`;
+                        optionsHTML += `<button class="schedule-option-btn" data-task-id="${taskId}" data-dock-id="${dock.id}" data-time="${time}"><strong>${dock.numero}</strong> - Agendar às ${time}</button>`;
                         break;
                     }
                 }
@@ -394,41 +434,32 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="close-button">&times;</span>
             <h3>Agendar ${task.cliente}</h3>
             <div class="schedule-options-list">
-                ${patioButtonHTML}
-                <hr style="margin: 15px 0; border-color: #eee; border-style: solid; border-width: 1px 0 0 0;">
-                <p style="margin: 0 0 10px; font-weight: bold;">Ou agende em uma doca livre:</p>
-                ${dockOptionsHTML || '<p>Nenhuma doca livre encontrada a partir de agora.</p>'}
+                ${optionsHTML}
             </div>`;
         
         modalContent.querySelector('.close-button').addEventListener('click', closeModal);
 
-        const patioBtn = modalContent.querySelector('.schedule-patio-btn');
-        if (patioBtn) {
-            patioBtn.addEventListener('click', (e) => {
-                const taskIdToMove = e.currentTarget.dataset.taskId;
-                const taskToMove = findTaskById(taskIdToMove);
-                if (taskToMove) {
-                    taskToMove.status = 'No Pátio';
-                    taskToMove.assignedTo = null;
-                    socket.emit('board:update', { tasks: allTasks, boardData });
-                    closeModal();
-                }
-            });
-        }
-
-        document.querySelectorAll('.schedule-option-btn[data-dock-id]').forEach(button => {
+        modalContent.querySelectorAll('.schedule-option-btn').forEach(button => {
             button.addEventListener('click', (e) => {
-                const { taskId, dockId, time } = e.currentTarget.dataset;
-                const taskToSchedule = findTaskById(taskId);
-                const dockToSchedule = findDockById(dockId);
-                if (taskToSchedule && dockToSchedule) {
-                    taskToSchedule.assignedTo = { dockId, time };
-                    taskToSchedule.status = 'Agendado';
-                    dockToSchedule.status = 'ocupada';
-                    dockToSchedule.taskIdAtual = taskId;
-                    socket.emit('board:update', { tasks: allTasks, boardData });
-                    closeModal();
+                const { taskId, destination, dockId, time } = e.currentTarget.dataset;
+                const taskToUpdate = findTaskById(taskId);
+                if (!taskToUpdate) return;
+
+                if (destination === 'patio') {
+                    taskToUpdate.status = 'No Pátio';
+                    taskToUpdate.assignedTo = null;
+                } else if (dockId && time) {
+                    const dockToSchedule = findDockById(dockId);
+                    if (dockToSchedule) {
+                        taskToUpdate.assignedTo = { dockId, time };
+                        taskToUpdate.status = 'Agendado';
+                        dockToSchedule.status = 'ocupada';
+                        dockToSchedule.taskIdAtual = taskId;
+                    }
                 }
+                
+                socket.emit('board:update', { tasks: allTasks, boardData });
+                closeModal();
             });
         });
 
@@ -438,7 +469,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeModal() { modal.style.display = 'none'; currentTaskInModal = null; }
     
-    // MODIFICADO: Permite iniciar processo no pátio
     function handleStartProcess() {
         const task = currentTaskInModal;
         if (task && (task.status === 'Agendado' || task.status === 'No Pátio')) {
@@ -449,13 +479,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else { alert('A tarefa precisa estar "Agendada" ou "No Pátio" para ser iniciada.'); }
     }
 
-    // MODIFICADO: Evita erro ao finalizar processo do pátio
     function handleEndProcess() {
         const task = currentTaskInModal;
         if (task && task.status === 'Em Processo') {
             task.status = 'Finalizado';
             task.horaFinalizacao = new Date();
-            // Só libera a doca se a tarefa estava, de fato, em uma doca
             if (task.assignedTo) {
                 const dock = findDockById(task.assignedTo.dockId);
                 if (dock) { 
