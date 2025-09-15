@@ -137,3 +137,4 @@ function isSameDay(date1, date2) {
     const d2 = new Date(date2);
     return d1.getFullYear() === date2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 }
+
