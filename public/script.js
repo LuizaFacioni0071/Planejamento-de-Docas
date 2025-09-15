@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) { document.getElementById('report-content').innerHTML = `<p>Ocorreu um erro ao carregar os dados.</p>`; }
     }
-
+    
     function renderPendingTasks(tasks, container) {
         if (!container) return;
         container.innerHTML = '<h2>Pedidos do Dia</h2>';
@@ -263,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.block-btn').forEach(button => {
              button.addEventListener('click', handleBlockButtonClick);
         });
-        setupDragToScroll();
     }
     
     // INTERAÇÕES TELEMÓVEL
@@ -451,8 +450,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function findDockById(id) { return Object.values(boardData).flatMap(cd => Object.values(cd).flatMap(mod => mod)).find(d => d.id === id); }
     function isSameDay(date1, date2) { return date1.getFullYear() === date2.getFullYear() && date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate(); }
     
-    // INICIALIZAÇÃO
-    setupDayNavigation();
+    // INICIALIZAÇÃO DA NAVEGAÇÃO
+    const mainNav = document.getElementById('main-nav-desktop');
+    if (mainNav) mainNav.addEventListener('click', handleNavClick);
+    
+    const mobileNav = document.getElementById('mobile-menu-content');
+    if (mobileNav) mobileNav.addEventListener('click', handleNavClick);
 });
-
-
