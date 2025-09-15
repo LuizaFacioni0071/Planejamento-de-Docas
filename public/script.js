@@ -74,14 +74,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // RENDERIZAÇÃO PC
     function renderDesktopTodayView(tasks) {
-        appContainer.innerHTML = `<main id="view-today" class="container view"><div id="unassigned-tasks" class="unassigned-container"><h2>Pedidos do Dia</h2><div id="unassigned-list" class="task-list"></div></div><div id="dock-board" class="dock-board-container"></div><div id="daily-agenda" class="daily-agenda-container"><h2>Finalizados do Dia</h2><div id="agenda-list" class="agenda-list"></div></div></main>`;
+        appContainer.innerHTML = `<main id="view-today" class="container view">
+            <div id="unassigned-tasks" class="unassigned-container"><h2>Pedidos do Dia</h2><div id="unassigned-list" class="task-list"></div></div>
+            <div id="patio-container" class="unassigned-container"><h2>Pátio</h2><div id="patio-list" class="task-list"></div></div>
+            <div id="dock-board" class="dock-board-container"></div>
+            <div id="daily-agenda" class="daily-agenda-container"><h2>Finalizados do Dia</h2><div id="agenda-list" class="agenda-list"></div></div>
+        </main>`;
+        
         renderPendingTasks(tasks, document.getElementById('unassigned-list'));
+        renderPatioTasks(tasks, document.getElementById('patio-list'));
         renderDockBoard(tasks, document.getElementById('dock-board'));
         renderFinalizados(tasks, document.getElementById('agenda-list'));
         initializeDesktopInteractions();
     }
     
-    // RENDERIZAÇÃO TELEMÓVEL (MODIFICADO)
+    // RENDERIZAÇÃO TELEMÓVEL
     function renderMobileTodayView(tasks) {
         appContainer.innerHTML = `
             <main id="view-today" class="container view">
@@ -132,10 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function renderPendingTasks(tasks, container) {
         if (!container) return;
-        container.innerHTML = '<h2>Pedidos do Dia</h2>';
-        const list = document.createElement('div');
-        list.className = 'task-list';
-        container.appendChild(list);
+        container.innerHTML = ''; // MODIFICADO: Remove título duplicado
         const unassignedTasks = tasks.filter(task => !task.assignedTo && (task.status === 'Aguardando' || task.status === 'Não Compareceu'));
         const tasksByTime = unassignedTasks.reduce((acc, task) => { const time = task.horarioSugerido; if (!acc[time]) acc[time] = []; acc[time].push(task); return acc; }, {});
         const sortedTimes = Object.keys(tasksByTime).sort((a, b) => a.localeCompare(b));
@@ -143,13 +147,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const timeHeader = document.createElement('h3');
             timeHeader.className = 'time-group-header';
             timeHeader.textContent = time;
-            list.appendChild(timeHeader);
+            container.appendChild(timeHeader);
             const timeGroupList = document.createElement('div');
             timeGroupList.className = 'task-list-group';
             tasksByTime[time].forEach(task => timeGroupList.appendChild(createTaskCard(task)));
-            list.appendChild(timeGroupList);
+            container.appendChild(timeGroupList);
         });
     }
+
+    function renderPatioTasks(tasks, container) {
+        if (!container) return;
+        container.innerHTML = ''; // Limpa conteúdo anterior
+        const patioTasks = tasks.filter(task => task.status === 'No Pátio');
+        patioTasks.sort((a, b) => a.cliente.localeCompare(b.cliente)); // Ordena por cliente
+        patioTasks.forEach(task => {
+            container.appendChild(createTaskCard(task));
+        });
+    }
+
     function renderDockBoard(tasks, container) {
         if (!container) return;
         container.innerHTML = '';
@@ -182,14 +197,12 @@ document.addEventListener('DOMContentLoaded', () => {
             container.appendChild(dockColumn);
         });
     }
+
     function renderFinalizados(tasks, container) {
         if (!container) return;
-        container.innerHTML = '<h2>Finalizados do Dia</h2>';
-        const list = document.createElement('div');
-        list.className = 'agenda-list';
-        container.appendChild(list);
+        container.innerHTML = ''; // MODIFICADO: Remove título duplicado
         const finalizadosTasks = tasks.filter(task => task.status === 'Finalizado').sort((a, b) => new Date(b.horaFinalizacao) - new Date(a.horaFinalizacao));
-        if (finalizadosTasks.length === 0) { list.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
+        if (finalizadosTasks.length === 0) { container.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
         else {
             finalizadosTasks.forEach(task => {
                 const finalItem = document.createElement('div');
@@ -197,10 +210,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const horaInicio = task.horaEntrada ? new Date(task.horaEntrada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
                 const horaFinal = task.horaFinalizacao ? new Date(task.horaFinalizacao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
                 finalItem.innerHTML = `<p class="agenda-item-header">${task.cliente}</p><p><strong>Início:</strong> ${horaInicio}</p><p><strong>Finalizado:</strong> ${horaFinal}</p>`;
-                list.appendChild(finalItem);
+                container.appendChild(finalItem);
             });
         }
     }
+
     function createTaskCard(task) {
         const card = document.createElement('div');
         let statusClass = '';
@@ -226,26 +240,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // INTERAÇÕES DESKTOP
     function initializeDesktopInteractions() {
-        const draggableContainers = [...document.querySelectorAll('.task-list-group'), ...document.querySelectorAll('.drop-zone')];
+        const draggableContainers = [...document.querySelectorAll('.task-list-group'), ...document.querySelectorAll('#patio-list'), ...document.querySelectorAll('.drop-zone')];
         draggableContainers.forEach(container => {
             if (container.sortableInstance) container.sortableInstance.destroy();
             container.sortableInstance = new Sortable(container, {
                 group: 'shared', animation: 150, filter: '.non-draggable',
                 onEnd: (evt) => {
-                    const taskId = evt.item.id; const task = findTaskById(taskId); if (!task) return;
-                    if (task.assignedTo) { const oldDock = findDockById(task.assignedTo.dockId); if (oldDock) { oldDock.status = 'livre'; oldDock.taskIdAtual = null; } }
+                    const taskId = evt.item.id;
+                    const task = findTaskById(taskId);
+                    if (!task) return;
+
+                    // Limpa a doca antiga se a tarefa estava em uma
+                    if (task.assignedTo) {
+                        const oldDock = findDockById(task.assignedTo.dockId);
+                        if (oldDock) {
+                            oldDock.status = 'livre';
+                            oldDock.taskIdAtual = null;
+                        }
+                    }
+                    
                     const targetContainer = evt.to;
+                    
                     if (targetContainer.classList.contains('drop-zone')) {
                         const targetDockId = targetContainer.dataset.dockId;
                         const dock = findDockById(targetDockId);
-                        if (dock.status !== 'livre') { alert(`A doca ${dock.numero} não está disponível (Status: ${dock.status}).`); socket.emit('board:update', { tasks: allTasks, boardData }); return; }
+                        if (dock.status !== 'livre') {
+                            alert(`A doca ${dock.numero} não está disponível (Status: ${dock.status}).`);
+                            socket.emit('board:update', { tasks: allTasks, boardData }); // Reverte visualmente
+                            return;
+                        }
                         task.assignedTo = { dockId: targetDockId, time: targetContainer.dataset.time };
                         task.status = 'Agendado';
                         dock.status = 'ocupada';
                         dock.taskIdAtual = task.id;
                     } else {
                         task.assignedTo = null;
-                        task.status = 'Aguardando';
+                        if (targetContainer.closest('#patio-container')) {
+                            task.status = 'No Pátio';
+                        } else {
+                            task.status = 'Aguardando';
+                        }
                     }
                     socket.emit('board:update', { tasks: allTasks, boardData });
                 }
@@ -270,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // INTERAÇÕES TELEMÓVEL (MODIFICADO)
+    // INTERAÇÕES TELEMÓVEL
     function initializeMobileInteractions() {
         document.querySelectorAll('#content-pedidos .task-card').forEach(card => {
             card.addEventListener('click', (e) => {
