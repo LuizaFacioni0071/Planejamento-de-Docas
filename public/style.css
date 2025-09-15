@@ -78,12 +78,12 @@ header h1 { margin: 0; font-size: 24px; }
     #app-container { height: calc(100vh - 55px); }
     .container { height: 100%; flex-direction: column; padding: 10px; gap: 10px; }
     .mobile-view-nav { display: flex; justify-content: space-around; background-color: #e9edf2; padding: 5px; border-radius: 8px; margin-bottom: 10px; flex-shrink: 0; }
-    .mobile-view-nav button { flex-grow: 1; padding: 10px; border: none; background-color: transparent; font-weight: bold; color: var(--text-dark); border-bottom: 3px solid transparent; }
+    .mobile-view-nav button { flex-grow: 1; padding: 10px; border: none; background-color: transparent; font-weight: bold; color: var(--text-dark); border-bottom: 3px solid transparent; font-size: 14px; }
     .mobile-view-nav button.active { color: var(--ws-blue-dark); border-bottom: 3px solid var(--ws-blue-dark); }
-    .mobile-view-content { flex-grow: 1; overflow-y: auto; position: relative; }
+    .mobile-view-content { flex-grow: 1; overflow: hidden; position: relative; }
     .mobile-view-content > div { display: none; height: 100%; }
     .mobile-view-content > div.active { display: flex; flex-direction: column; }
-    .unassigned-container, .daily-agenda-container, .dock-board-container { width: 100%; box-sizing: border-box; height: 100%; }
+    .unassigned-container, .daily-agenda-container, .dock-board-container { width: 100%; box-sizing: border-box; height: 100%; overflow-y: auto; }
     #content-docas.dock-board-container { display: flex; flex-direction: row; }
     .dock-column { min-width: 180px; }
 }
