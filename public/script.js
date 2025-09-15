@@ -81,20 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeDesktopInteractions();
     }
     
-    // RENDERIZAÇÃO TELEMÓVEL
+    // RENDERIZAÇÃO TELEMÓVEL (MODIFICADO)
     function renderMobileTodayView(tasks) {
         appContainer.innerHTML = `
             <main id="view-today" class="container view">
-                <nav class="mobile-view-nav">
-                    <button id="mobile-tab-pedidos" class="mobile-tab-btn active">Pedidos</button>
-                    <button id="mobile-tab-docas" class="mobile-tab-btn">Docas</button>
-                    <button id="mobile-tab-finalizados" class="mobile-tab-btn">Finalizados</button>
-                </nav>
-                <div class="mobile-view-content">
-                    <div id="content-pedidos" class="unassigned-container active"></div>
-                    <div id="content-docas" class="dock-board-container"></div>
-                    <div id="content-finalizados" class="daily-agenda-container"></div>
-                </div>
+                <div id="content-pedidos" class="unassigned-container"></div>
+                <div id="content-docas" class="dock-board-container"></div>
+                <div id="content-finalizados" class="daily-agenda-container"></div>
             </main>`;
         renderPendingTasks(tasks, document.getElementById('content-pedidos'));
         renderDockBoard(tasks, document.getElementById('content-docas'));
@@ -277,18 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // INTERAÇÕES TELEMÓVEL
+    // INTERAÇÕES TELEMÓVEL (MODIFICADO)
     function initializeMobileInteractions() {
-        const tabs = document.querySelectorAll('.mobile-tab-btn');
-        const contents = document.querySelectorAll('.mobile-view-content > div');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                contents.forEach(c => c.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById(`content-${tab.id.split('-')[2]}`).classList.add('active');
-            });
-        });
         document.querySelectorAll('#content-pedidos .task-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if(e.target.closest('button')) return;
