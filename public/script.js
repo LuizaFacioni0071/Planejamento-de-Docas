@@ -27,7 +27,20 @@ document.addEventListener('DOMContentLoaded', () => {
         updateView();
     });
 
-    // --- FUNÇÕES DE NAVEGAÇÃO E EVENTOS ---
+    // NAVEGAÇÃO
+    function setupDayNavigation() {
+        // Esta função agora está vazia e não é mais necessária,
+        // pois a lógica foi movida para event listeners mais robustos.
+    }
+
+    const mainNavDesktop = document.getElementById('main-nav-desktop');
+    if (mainNavDesktop) {
+        mainNavDesktop.addEventListener('click', handleNavClick);
+    }
+    const mobileNavContent = document.getElementById('mobile-menu-content');
+    if (mobileNavContent) {
+        mobileNavContent.addEventListener('click', handleNavClick);
+    }
 
     function handleNavClick(e) {
         const navLink = e.target.closest('a');
@@ -38,11 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
             closeMobileMenu();
         }
     }
-    
-    function openMobileMenu() { mobileMenu.classList.add('open'); overlay.classList.add('open'); }
-    function closeMobileMenu() { mobileMenu.classList.remove('open'); overlay.classList.remove('open'); }
 
-    // --- FUNÇÃO "ROUTER" PRINCIPAL ---
+    // FUNÇÃO "ROUTER" PRINCIPAL
     function updateView() {
         renderMobileNav();
         document.querySelectorAll('.main-nav a, #mobile-menu-content a').forEach(l => l.classList.remove('active'));
@@ -62,15 +72,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // --- RENDERIZAÇÃO DAS TELAS ---
+    // RENDERIZAÇÃO PC
     function renderDesktopTodayView(tasks) {
-        appContainer.innerHTML = `<main id="view-today" class="container view"><div id="unassigned-tasks" class="unassigned-container"></div><div id="dock-board" class="dock-board-container"></div><div id="daily-agenda" class="daily-agenda-container"></div></main>`;
-        renderPendingTasks(tasks, document.getElementById('unassigned-tasks'));
+        appContainer.innerHTML = `<main id="view-today" class="container view"><div id="unassigned-tasks" class="unassigned-container"><h2>Pedidos do Dia</h2><div id="unassigned-list" class="task-list"></div></div><div id="dock-board" class="dock-board-container"></div><div id="daily-agenda" class="daily-agenda-container"><h2>Finalizados do Dia</h2><div id="agenda-list" class="agenda-list"></div></div></main>`;
+        renderPendingTasks(tasks, document.getElementById('unassigned-list'));
         renderDockBoard(tasks, document.getElementById('dock-board'));
-        renderFinalizados(tasks, document.getElementById('daily-agenda'));
+        renderFinalizados(tasks, document.getElementById('agenda-list'));
         initializeDesktopInteractions();
     }
     
+    // RENDERIZAÇÃO TELEMÓVEL
     function renderMobileTodayView(tasks) {
         appContainer.innerHTML = `
             <main id="view-today" class="container view">
@@ -264,7 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.block-btn').forEach(button => {
              button.addEventListener('click', handleBlockButtonClick);
         });
-        setupDragToScroll();
     }
     
     // INTERAÇÕES TELEMÓVEL
@@ -419,33 +429,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderMobileNav() {
         const mobileNav = document.getElementById('mobile-menu-content');
         mobileNav.innerHTML = `<a href="#" id="nav-yesterday">Resumo de Ontem</a><a href="#" id="nav-today">Planejamento de Hoje</a><a href="#" id="nav-tomorrow">Previsão de Amanhã</a>`;
-        // A lógica de anexar eventos foi movida para a inicialização principal
+        setupDayNavigation();
     }
     function openMobileMenu() { mobileMenu.classList.add('open'); overlay.classList.add('open'); }
     function closeMobileMenu() { mobileMenu.classList.remove('open'); overlay.classList.remove('open'); }
     hamburgerBtn.addEventListener('click', openMobileMenu);
-    closeMenuBtn.addEventListener('click', closeMobileMenu);
+    closeMenuBtn.addEventListener('click', closeMenuBtn);
     overlay.addEventListener('click', closeMobileMenu);
-
-    // LÓGICA DE ARRASTAR PARA NAVEGAR
-    function setupDragToScroll() {
-        const slider = document.querySelector('.dock-board-container');
-        if (!slider) return;
-        let isDown = false, startX, scrollLeft;
-        slider.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.task-card')) return;
-            isDown = true; slider.classList.add('active'); startX = e.pageX - slider.offsetLeft; scrollLeft = slider.scrollLeft;
-        });
-        slider.addEventListener('mouseleave', () => { isDown = false; slider.classList.remove('active'); });
-        slider.addEventListener('mouseup', () => { isDown = false; slider.classList.remove('active'); });
-        slider.addEventListener('mousemove', (e) => {
-            if (!isDown) return;
-            e.preventDefault();
-            const x = e.pageX - slider.offsetLeft;
-            const walk = (x - startX) * 2;
-            slider.scrollLeft = scrollLeft - walk;
-        });
-    }
 
     // FUNÇÕES AUXILIARES
     function findTaskById(id) { return allTasks.find(task => task.id === id); }
@@ -453,5 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function isSameDay(date1, date2) { return date1.getFullYear() === date2.getFullYear() && date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate(); }
     
     // INICIALIZAÇÃO DA NAVEGAÇÃO
-    setupDayNavigation();
+    const mainNav = document.getElementById('main-nav-desktop');
+    if (mainNav) mainNav.addEventListener('click', handleNavClick);
+    const mobileNav = document.getElementById('mobile-menu-content');
+    if (mobileNav) mobileNav.addEventListener('click', handleNavClick);
 });
