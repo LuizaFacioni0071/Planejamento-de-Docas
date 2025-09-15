@@ -139,8 +139,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function renderPendingTasks(tasks, container) {
         if (!container) return;
-        container.innerHTML = ''; // MODIFICADO: Remove título duplicado
-        const unassignedTasks = tasks.filter(task => !task.assignedTo && (task.status === 'Aguardando' || task.status === 'Não Compareceu'));
+        container.innerHTML = ''; 
+        // MODIFICADO: Inclui tarefas 'No Pátio' na lista de pendentes do celular
+        const unassignedTasks = tasks.filter(task => !task.assignedTo && (task.status === 'Aguardando' || task.status === 'Não Compareceu' || task.status === 'No Pátio'));
         const tasksByTime = unassignedTasks.reduce((acc, task) => { const time = task.horarioSugerido; if (!acc[time]) acc[time] = []; acc[time].push(task); return acc; }, {});
         const sortedTimes = Object.keys(tasksByTime).sort((a, b) => a.localeCompare(b));
         sortedTimes.forEach(time => {
@@ -157,9 +158,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPatioTasks(tasks, container) {
         if (!container) return;
-        container.innerHTML = ''; // Limpa conteúdo anterior
+        container.innerHTML = ''; 
         const patioTasks = tasks.filter(task => task.status === 'No Pátio');
-        patioTasks.sort((a, b) => a.cliente.localeCompare(b.cliente)); // Ordena por cliente
+        patioTasks.sort((a, b) => a.cliente.localeCompare(b.cliente)); 
         patioTasks.forEach(task => {
             container.appendChild(createTaskCard(task));
         });
@@ -200,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderFinalizados(tasks, container) {
         if (!container) return;
-        container.innerHTML = ''; // MODIFICADO: Remove título duplicado
+        container.innerHTML = ''; 
         const finalizadosTasks = tasks.filter(task => task.status === 'Finalizado').sort((a, b) => new Date(b.horaFinalizacao) - new Date(a.horaFinalizacao));
         if (finalizadosTasks.length === 0) { container.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
         else {
@@ -250,7 +251,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const task = findTaskById(taskId);
                     if (!task) return;
 
-                    // Limpa a doca antiga se a tarefa estava em uma
                     if (task.assignedTo) {
                         const oldDock = findDockById(task.assignedTo.dockId);
                         if (oldDock) {
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dock = findDockById(targetDockId);
                         if (dock.status !== 'livre') {
                             alert(`A doca ${dock.numero} não está disponível (Status: ${dock.status}).`);
-                            socket.emit('board:update', { tasks: allTasks, boardData }); // Reverte visualmente
+                            socket.emit('board:update', { tasks: allTasks, boardData }); 
                             return;
                         }
                         task.assignedTo = { dockId: targetDockId, time: targetContainer.dataset.time };
@@ -306,11 +306,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // INTERAÇÕES TELEMÓVEL
     function initializeMobileInteractions() {
+        // MODIFICADO: Lógica de clique dividida para agendamento vs. detalhes
         document.querySelectorAll('#content-pedidos .task-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                if(e.target.closest('button')) return;
-                openScheduleModal(card.id)
-            });
+            const task = findTaskById(card.id);
+            if (task && task.status === 'Aguardando') {
+                card.addEventListener('click', (e) => {
+                    if(e.target.closest('button')) return;
+                    openScheduleModal(card.id);
+                });
+            } else { // Para tarefas 'No Pátio' ou 'Não Compareceu'
+                card.addEventListener('click', (e) => {
+                     if(e.target.closest('button')) return;
+                     openModal('details', card.id)
+                });
+            }
         });
         document.querySelectorAll('#content-docas .task-card, #content-finalizados .agenda-item').forEach(card => {
             card.addEventListener('click', () => openModal('details', card.id));
@@ -344,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p><strong>Cliente:</strong> ${task.cliente}</p><p><strong>Tipo:</strong> ${task.tipo}</p>
                 <p><strong>Regime:</strong> ${task.subType}</p><p><strong>Tipo de Carga:</strong> ${task.isPalletized ? 'Paletizado' : 'Não-Paletizado'}</p>
                 <p><strong>Status:</strong> ${task.status}</p>
-                <p><strong>Entrada na Doca:</strong> ${task.horaEntrada ? new Date(task.horaEntrada).toLocaleString('pt-BR') : 'N/A'}</p>
+                <p><strong>Início do Processo:</strong> ${task.horaEntrada ? new Date(task.horaEntrada).toLocaleString('pt-BR') : 'N/A'}</p>
                 <p><strong>Finalização:</strong> ${task.horaFinalizacao ? new Date(task.horaFinalizacao).toLocaleString('pt-BR') : 'N/A'}</p>
             </div>
             <div class="modal-actions">
@@ -361,7 +370,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!task) return;
         currentTaskInModal = task;
         const modalContent = document.getElementById('modal-content');
-        let optionsHTML = '<p>Selecione o próximo horário livre:</p>';
+
+        const patioButtonHTML = `<button class="schedule-option-btn schedule-patio-btn" data-task-id="${taskId}"><strong>Mover para o Pátio</strong></button>`;
+
+        let dockOptionsHTML = '';
         const now = new Date();
         const allDocks = Object.values(boardData).flatMap(cd => Object.values(cd).flatMap(mod => mod));
         
@@ -371,19 +383,40 @@ document.addEventListener('DOMContentLoaded', () => {
                     const time = `${String(i).padStart(2, '0')}:00`;
                     const isOccupied = allTasks.some(t => t.assignedTo?.dockId === dock.id && t.assignedTo?.time === time);
                     if (!isOccupied) {
-                        optionsHTML += `<button class="schedule-option-btn" data-task-id="${taskId}" data-dock-id="${dock.id}" data-time="${time}"><strong>${dock.numero}</strong> - Agendar às ${time}</button>`;
+                        dockOptionsHTML += `<button class="schedule-option-btn" data-task-id="${taskId}" data-dock-id="${dock.id}" data-time="${time}"><strong>${dock.numero}</strong> - Agendar às ${time}</button>`;
                         break;
                     }
                 }
             }
         });
+
         modalContent.innerHTML = `
             <span class="close-button">&times;</span>
             <h3>Agendar ${task.cliente}</h3>
-            <div class="schedule-options-list">${optionsHTML.includes('<button') ? optionsHTML : '<p>Nenhuma doca livre encontrada a partir de agora.</p>'}</div>`;
+            <div class="schedule-options-list">
+                ${patioButtonHTML}
+                <hr style="margin: 15px 0; border-color: #eee; border-style: solid; border-width: 1px 0 0 0;">
+                <p style="margin: 0 0 10px; font-weight: bold;">Ou agende em uma doca livre:</p>
+                ${dockOptionsHTML || '<p>Nenhuma doca livre encontrada a partir de agora.</p>'}
+            </div>`;
         
         modalContent.querySelector('.close-button').addEventListener('click', closeModal);
-        document.querySelectorAll('.schedule-option-btn').forEach(button => {
+
+        const patioBtn = modalContent.querySelector('.schedule-patio-btn');
+        if (patioBtn) {
+            patioBtn.addEventListener('click', (e) => {
+                const taskIdToMove = e.currentTarget.dataset.taskId;
+                const taskToMove = findTaskById(taskIdToMove);
+                if (taskToMove) {
+                    taskToMove.status = 'No Pátio';
+                    taskToMove.assignedTo = null;
+                    socket.emit('board:update', { tasks: allTasks, boardData });
+                    closeModal();
+                }
+            });
+        }
+
+        document.querySelectorAll('.schedule-option-btn[data-dock-id]').forEach(button => {
             button.addEventListener('click', (e) => {
                 const { taskId, dockId, time } = e.currentTarget.dataset;
                 const taskToSchedule = findTaskById(taskId);
@@ -398,28 +431,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
         modal.style.display = 'block';
     }
 
+
     function closeModal() { modal.style.display = 'none'; currentTaskInModal = null; }
     
+    // MODIFICADO: Permite iniciar processo no pátio
     function handleStartProcess() {
         const task = currentTaskInModal;
-        if (task && task.assignedTo && task.status === 'Agendado') {
+        if (task && (task.status === 'Agendado' || task.status === 'No Pátio')) {
             task.status = 'Em Processo';
             task.horaEntrada = new Date();
             socket.emit('board:update', { tasks: allTasks, boardData });
             closeModal();
-        } else { alert('A tarefa precisa estar agendada numa doca para ser iniciada.'); }
+        } else { alert('A tarefa precisa estar "Agendada" ou "No Pátio" para ser iniciada.'); }
     }
 
+    // MODIFICADO: Evita erro ao finalizar processo do pátio
     function handleEndProcess() {
         const task = currentTaskInModal;
         if (task && task.status === 'Em Processo') {
             task.status = 'Finalizado';
             task.horaFinalizacao = new Date();
-            const dock = findDockById(task.assignedTo.dockId);
-            if (dock) { dock.status = 'livre'; dock.taskIdAtual = null; }
+            // Só libera a doca se a tarefa estava, de fato, em uma doca
+            if (task.assignedTo) {
+                const dock = findDockById(task.assignedTo.dockId);
+                if (dock) { 
+                    dock.status = 'livre'; 
+                    dock.taskIdAtual = null; 
+                }
+            }
             socket.emit('board:update', { tasks: allTasks, boardData });
             closeModal();
         } else { alert('A tarefa precisa estar "Em Processo" para ser finalizada.'); }
