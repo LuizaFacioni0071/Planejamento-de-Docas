@@ -71,13 +71,14 @@ header h1 { margin: 0; font-size: 24px; }
 .report-column { flex: 1; background-color: #E9EDF2; padding: 15px; border-radius: 8px; min-width: 300px; }
 .report-column h3 { margin-top: 0; color: var(--ws-blue-dark); }
 .report-item { background-color: #fff; padding: 10px; border-radius: 5px; margin-bottom: 8px; border-left: 5px solid var(--border-color); }
+
 @media (max-width: 768px) {
     .hamburger-btn { display: block; }
     header .main-nav { display: none; }
     header h1 { font-size: 18px; text-align: center; width: 100%; padding: 0 40px; box-sizing: border-box; }
     #app-container { height: calc(100vh - 55px); }
     .container { height: auto; flex-direction: column; padding: 10px; gap: 15px; }
-    .unassigned-container, .daily-agenda-container { width: 100%; box-sizing: border-box; height: auto; max-height: 50vh; }
+    .unassigned-container, .daily-agenda-container { width: 100%; box-sizing: border-box; height: auto; max-height: 45vh; }
     .dock-board-container { width: 100%; box-sizing: border-box; order: 2; height: 50vh; display: flex; flex-direction: row; }
     .dock-column { min-width: 180px; }
 }
