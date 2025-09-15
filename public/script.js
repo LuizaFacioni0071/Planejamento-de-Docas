@@ -85,27 +85,26 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeDesktopInteractions();
     }
     
-    // RENDERIZAÇÃO TELEMÓVEL
+    // MODIFICADO: RENDERIZAÇÃO TELEMÓVEL SEM ABAS
     function renderMobileTodayView(tasks) {
         appContainer.innerHTML = `
             <main id="view-today" class="container view">
-                <nav class="mobile-view-nav">
-                    <button id="mobile-tab-pedidos" class="mobile-tab-btn active">Pedidos</button>
-                    <button id="mobile-tab-docas" class="mobile-tab-btn">Docas</button>
-                    <button id="mobile-tab-finalizados" class="mobile-tab-btn">Finalizados</button>
-                </nav>
-                <div class="mobile-view-content">
-                    <div id="content-pedidos" class="unassigned-container active"></div>
-                    <div id="content-docas" class="dock-board-container"></div>
-                    <div id="content-finalizados" class="daily-agenda-container"></div>
+                <div id="content-pedidos" class="unassigned-container">
+                    <h2>Pedidos do Dia</h2>
+                    <div class="task-list"></div>
+                </div>
+                <div id="content-docas" class="dock-board-container">
+                    </div>
+                <div id="content-finalizados" class="daily-agenda-container">
+                    <h2>Finalizados do Dia</h2>
+                    <div class="agenda-list"></div>
                 </div>
             </main>`;
-        renderPendingTasks(tasks, document.querySelector('#content-pedidos'));
+        renderPendingTasks(tasks, document.querySelector('#content-pedidos .task-list'));
         renderDockBoard(tasks, document.getElementById('content-docas'));
-        renderFinalizados(tasks, document.querySelector('#content-finalizados'));
+        renderFinalizados(tasks, document.querySelector('#content-finalizados .agenda-list'));
         initializeMobileInteractions();
     }
-
 
     async function renderReportView(day) {
         const viewTitle = day === 'yesterday' ? 'Resumo de Ontem' : 'Previsão de Amanhã';
@@ -142,12 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { document.getElementById('report-content').innerHTML = `<p>Ocorreu um erro ao carregar os dados.</p>`; }
     }
     
+    // MODIFICADO: Não insere mais o título H2
     function renderPendingTasks(tasks, container) {
         if (!container) return;
-        container.innerHTML = '<h2>Pedidos do Dia</h2>';
-        const list = document.createElement('div');
-        list.className = 'task-list';
-        container.appendChild(list);
+        container.innerHTML = ''; // Limpa a lista para renderização
         const unassignedTasks = tasks.filter(task => (task.status === 'Aguardando' || task.status === 'Não Compareceu'));
         const tasksByTime = unassignedTasks.reduce((acc, task) => { const time = task.horarioSugerido; if (!acc[time]) acc[time] = []; acc[time].push(task); return acc; }, {});
         const sortedTimes = Object.keys(tasksByTime).sort((a, b) => a.localeCompare(b));
@@ -155,25 +152,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const timeHeader = document.createElement('h3');
             timeHeader.className = 'time-group-header';
             timeHeader.textContent = time;
-            list.appendChild(timeHeader);
+            container.appendChild(timeHeader);
             const timeGroupList = document.createElement('div');
             timeGroupList.className = 'task-list-group';
             tasksByTime[time].forEach(task => timeGroupList.appendChild(createTaskCard(task)));
-            list.appendChild(timeGroupList);
+            container.appendChild(timeGroupList);
         });
     }
 
-    // MODIFICADO: Exibe também os cards finalizados no pátio
     function renderPatioTasks(tasks, container) {
         if (!container) return;
         container.innerHTML = ''; 
         const patioTasks = tasks.filter(task =>
             (task.status === 'No Pátio') ||
             (task.status === 'Em Processo' && !task.assignedTo) ||
-            (task.status === 'Finalizado' && !task.assignedTo) // <-- Adicionado para manter a visualização
+            (task.status === 'Finalizado' && !task.assignedTo)
         );
 
-        // Ordena para que os cards ativos fiquem no topo
         patioTasks.sort((a, b) => {
             if (a.status === 'Finalizado' && b.status !== 'Finalizado') return 1;
             if (a.status !== 'Finalizado' && b.status === 'Finalizado') return -1;
@@ -189,7 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
         container.innerHTML = '';
 
-        // Adiciona processos do pátio na visão móvel
         if (isMobile) {
             const patioProcessTasks = tasks.filter(task => (task.status === 'No Pátio') || (task.status === 'Em Processo' && !task.assignedTo));
             if (patioProcessTasks.length > 0) {
@@ -240,15 +234,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // MODIFICADO: Não insere mais o título H2
     function renderFinalizados(tasks, container) {
         if (!container) return;
-        container.innerHTML = '<h2>Finalizados do Dia</h2>';
-        const list = document.createElement('div');
-        list.className = 'agenda-list';
-        container.appendChild(list);
-
+        container.innerHTML = ''; // Limpa a lista para renderização
         const finalizadosTasks = tasks.filter(task => task.status === 'Finalizado').sort((a, b) => new Date(b.horaFinalizacao) - new Date(a.horaFinalizacao));
-        if (finalizadosTasks.length === 0) { list.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
+        if (finalizadosTasks.length === 0) { container.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
         else {
             finalizadosTasks.forEach(task => {
                 const finalItem = document.createElement('div');
@@ -256,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const horaInicio = task.horaEntrada ? new Date(task.horaEntrada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
                 const horaFinal = task.horaFinalizacao ? new Date(task.horaFinalizacao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
                 finalItem.innerHTML = `<p class="agenda-item-header">${task.cliente}</p><p><strong>Início:</strong> ${horaInicio}</p><p><strong>Finalizado:</strong> ${horaFinal}</p>`;
-                list.appendChild(finalItem);
+                container.appendChild(finalItem);
             });
         }
     }
@@ -350,19 +341,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // INTERAÇÕES TELEMÓVEL
+    // MODIFICADO: Lógica de abas removida
     function initializeMobileInteractions() {
-        const tabs = document.querySelectorAll('.mobile-tab-btn');
-        const contents = document.querySelectorAll('.mobile-view-content > div');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                contents.forEach(c => c.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById(`content-${tab.id.split('-')[2]}`).classList.add('active');
-            });
-        });
-
         document.querySelectorAll('.task-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (e.target.closest('button')) return;
@@ -405,7 +385,6 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.style.display = 'block';
     }
     
-    // MODIFICADO: Lista única de agendamento (Pátio + Docas)
     function openScheduleModal(taskId) {
         const task = findTaskById(taskId);
         if (!task) return;
