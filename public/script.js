@@ -28,25 +28,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // NAVEGAÇÃO
-    const mainNavDesktop = document.getElementById('main-nav-desktop');
-    if (mainNavDesktop) {
-        mainNavDesktop.addEventListener('click', handleNavClick);
-    }
-    const mobileNavContent = document.getElementById('mobile-menu-content');
-    if (mobileNavContent) {
-        mobileNavContent.addEventListener('click', handleNavClick);
+    function setupDayNavigation() {
+        const dayNavLinks = document.querySelectorAll('.main-nav a, #mobile-menu-content a');
+        dayNavLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                currentView = link.id.replace('nav-', '');
+                updateView();
+                closeMobileMenu();
+            });
+        });
     }
     
-    function handleNavClick(e) {
-        const navLink = e.target.closest('a');
-        if (navLink) {
-            e.preventDefault();
-            currentView = navLink.id.replace('nav-', '');
-            updateView();
-            closeMobileMenu();
-        }
-    }
-
     // FUNÇÃO "ROUTER" PRINCIPAL
     function updateView() {
         renderMobileNav();
@@ -188,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
         container.innerHTML = '<h2>Finalizados do Dia</h2>';
         const list = document.createElement('div');
-        list.className = 'agenda-list';
+        list.className = 'agenda-list'; // Garante que a lista de finalizados tenha a classe correta
         container.appendChild(list);
         const finalizadosTasks = tasks.filter(task => task.status === 'Finalizado').sort((a, b) => new Date(b.horaFinalizacao) - new Date(a.horaFinalizacao));
         if (finalizadosTasks.length === 0) { list.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
@@ -424,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // LÓGICA DO MENU MÓVEL
     function renderMobileNav() {
         const mobileNav = document.getElementById('mobile-menu-content');
-        mobileNav.innerHTML = `<a href="#" id="nav-yesterday">Resumo de Ontem</a><a href="#" id="nav-today" class="active">Planejamento de Hoje</a><a href="#" id="nav-tomorrow">Previsão de Amanhã</a>`;
+        mobileNav.innerHTML = `<a href="#" id="nav-yesterday">Resumo de Ontem</a><a href="#" id="nav-today">Planejamento de Hoje</a><a href="#" id="nav-tomorrow">Previsão de Amanhã</a>`;
         setupDayNavigation();
     }
     function openMobileMenu() { mobileMenu.classList.add('open'); overlay.classList.add('open'); }
@@ -458,5 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function findDockById(id) { return Object.values(boardData).flatMap(cd => Object.values(cd).flatMap(mod => mod)).find(d => d.id === id); }
     function isSameDay(date1, date2) { return date1.getFullYear() === date2.getFullYear() && date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate(); }
     
+    // INICIALIZAÇÃO DA NAVEGAÇÃO
     setupDayNavigation();
 });
+
