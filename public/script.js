@@ -40,18 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const mainNavDesktop = document.getElementById('main-nav-desktop');
-    if (mainNavDesktop) {
-        mainNavDesktop.addEventListener('click', (e) => {
-            const navLink = e.target.closest('a');
-            if (navLink) {
-                e.preventDefault();
-                currentView = navLink.id.replace('nav-', '');
-                updateView();
-            }
-        });
-    }
-    
     // FUNÇÃO "ROUTER" PRINCIPAL
     function updateView() {
         renderMobileNav();
@@ -139,7 +127,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPendingTasks(tasks, container) {
         if (!container) return;
-        container.innerHTML = '';
+        container.innerHTML = '<h2>Pedidos do Dia</h2>';
+        const list = document.createElement('div');
+        list.className = 'task-list';
+        container.appendChild(list);
         const unassignedTasks = tasks.filter(task => !task.assignedTo && (task.status === 'Aguardando' || task.status === 'Não Compareceu'));
         const tasksByTime = unassignedTasks.reduce((acc, task) => { const time = task.horarioSugerido; if (!acc[time]) acc[time] = []; acc[time].push(task); return acc; }, {});
         const sortedTimes = Object.keys(tasksByTime).sort((a, b) => a.localeCompare(b));
@@ -147,14 +138,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const timeHeader = document.createElement('h3');
             timeHeader.className = 'time-group-header';
             timeHeader.textContent = time;
-            container.appendChild(timeHeader);
+            list.appendChild(timeHeader);
             const timeGroupList = document.createElement('div');
             timeGroupList.className = 'task-list-group';
             tasksByTime[time].forEach(task => timeGroupList.appendChild(createTaskCard(task)));
-            container.appendChild(timeGroupList);
+            list.appendChild(timeGroupList);
         });
     }
-
     function renderDockBoard(tasks, container) {
         if (!container) return;
         container.innerHTML = '';
@@ -187,12 +177,14 @@ document.addEventListener('DOMContentLoaded', () => {
             container.appendChild(dockColumn);
         });
     }
-
     function renderFinalizados(tasks, container) {
         if (!container) return;
-        container.innerHTML = '';
+        container.innerHTML = '<h2>Finalizados do Dia</h2>';
+        const list = document.createElement('div');
+        list.className = 'agenda-list'; // Garante que a lista de finalizados tenha a classe correta
+        container.appendChild(list);
         const finalizadosTasks = tasks.filter(task => task.status === 'Finalizado').sort((a, b) => new Date(b.horaFinalizacao) - new Date(a.horaFinalizacao));
-        if (finalizadosTasks.length === 0) { container.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
+        if (finalizadosTasks.length === 0) { list.innerHTML = '<p>Nenhum processo finalizado hoje.</p>'; } 
         else {
             finalizadosTasks.forEach(task => {
                 const finalItem = document.createElement('div');
@@ -200,11 +192,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const horaInicio = task.horaEntrada ? new Date(task.horaEntrada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
                 const horaFinal = task.horaFinalizacao ? new Date(task.horaFinalizacao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
                 finalItem.innerHTML = `<p class="agenda-item-header">${task.cliente}</p><p><strong>Início:</strong> ${horaInicio}</p><p><strong>Finalizado:</strong> ${horaFinal}</p>`;
-                container.appendChild(finalItem);
+                list.appendChild(finalItem);
             });
         }
     }
-
     function createTaskCard(task) {
         const card = document.createElement('div');
         let statusClass = '';
@@ -228,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return card;
     }
 
+    // INTERAÇÕES DESKTOP
     function initializeDesktopInteractions() {
         const draggableContainers = [...document.querySelectorAll('.task-list-group'), ...document.querySelectorAll('.drop-zone')];
         draggableContainers.forEach(container => {
@@ -274,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupDragToScroll();
     }
     
+    // INTERAÇÕES TELEMÓVEL
     function initializeMobileInteractions() {
         const tabs = document.querySelectorAll('.mobile-tab-btn');
         const contents = document.querySelectorAll('.mobile-view-content > div');
@@ -286,7 +279,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         document.querySelectorAll('#content-pedidos .task-card').forEach(card => {
-            card.addEventListener('click', () => openScheduleModal(card.id));
+            card.addEventListener('click', (e) => {
+                if(e.target.closest('button')) return;
+                openScheduleModal(card.id)
+            });
         });
         document.querySelectorAll('#content-docas .task-card, #content-finalizados .agenda-item').forEach(card => {
             card.addEventListener('click', () => openModal('details', card.id));
@@ -294,8 +290,20 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.block-btn').forEach(button => {
              button.addEventListener('click', handleBlockButtonClick);
         });
+        document.querySelectorAll('.no-show-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const taskId = e.target.dataset.taskId;
+                const task = findTaskById(taskId);
+                if (task && confirm(`Marcar "${task.cliente}" como NÃO COMPARECEU?`)) {
+                    task.status = 'Não Compareceu';
+                    socket.emit('board:update', { tasks: allTasks, boardData });
+                }
+            });
+        });
     }
     
+    // LÓGICA DO MODAL
     function openModal(type, taskId) {
         const modalContent = document.getElementById('modal-content');
         modalContent.innerHTML = '';
@@ -406,16 +414,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
     
+    // LÓGICA DO MENU MÓVEL
     function renderMobileNav() {
         const mobileNav = document.getElementById('mobile-menu-content');
         mobileNav.innerHTML = `<a href="#" id="nav-yesterday">Resumo de Ontem</a><a href="#" id="nav-today" class="active">Planejamento de Hoje</a><a href="#" id="nav-tomorrow">Previsão de Amanhã</a>`;
+        setupDayNavigation();
     }
     function openMobileMenu() { mobileMenu.classList.add('open'); overlay.classList.add('open'); }
     function closeMobileMenu() { mobileMenu.classList.remove('open'); overlay.classList.remove('open'); }
     hamburgerBtn.addEventListener('click', openMobileMenu);
-    closeMenuBtn.addEventListener('click', closeMobileMenu);
+    closeMenuBtn.addEventListener('click', closeMenuBtn);
     overlay.addEventListener('click', closeMobileMenu);
 
+    // LÓGICA DE ARRASTAR PARA NAVEGAR
     function setupDragToScroll() {
         const slider = document.querySelector('.dock-board-container');
         if (!slider) return;
@@ -435,9 +446,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // FUNÇÕES AUXILIARES
     function findTaskById(id) { return allTasks.find(task => task.id === id); }
     function findDockById(id) { return Object.values(boardData).flatMap(cd => Object.values(cd).flatMap(mod => mod)).find(d => d.id === id); }
     function isSameDay(date1, date2) { return date1.getFullYear() === date2.getFullYear() && date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate(); }
     
+    // INICIALIZAÇÃO DA NAVEGAÇÃO
     setupDayNavigation();
 });
+
