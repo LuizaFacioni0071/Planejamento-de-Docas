@@ -27,20 +27,22 @@ document.addEventListener('DOMContentLoaded', () => {
         updateView();
     });
 
-    // NAVEGAÇÃO
-    function setupDayNavigation() {
-        const dayNavLinks = document.querySelectorAll('.main-nav a, #mobile-menu-content a');
-        dayNavLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                currentView = link.id.replace('nav-', '');
-                updateView();
-                closeMobileMenu();
-            });
-        });
-    }
+    // --- FUNÇÕES DE NAVEGAÇÃO E EVENTOS ---
 
-    // FUNÇÃO "ROUTER" PRINCIPAL
+    function handleNavClick(e) {
+        const navLink = e.target.closest('a');
+        if (navLink) {
+            e.preventDefault();
+            currentView = navLink.id.replace('nav-', '');
+            updateView();
+            closeMobileMenu();
+        }
+    }
+    
+    function openMobileMenu() { mobileMenu.classList.add('open'); overlay.classList.add('open'); }
+    function closeMobileMenu() { mobileMenu.classList.remove('open'); overlay.classList.remove('open'); }
+
+    // --- FUNÇÃO "ROUTER" PRINCIPAL ---
     function updateView() {
         renderMobileNav();
         document.querySelectorAll('.main-nav a, #mobile-menu-content a').forEach(l => l.classList.remove('active'));
@@ -60,16 +62,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // RENDERIZAÇÃO PC
+    // --- RENDERIZAÇÃO DAS TELAS ---
     function renderDesktopTodayView(tasks) {
-        appContainer.innerHTML = `<main id="view-today" class="container view"><div id="unassigned-tasks" class="unassigned-container"><h2>Pedidos do Dia</h2><div id="unassigned-list" class="task-list"></div></div><div id="dock-board" class="dock-board-container"></div><div id="daily-agenda" class="daily-agenda-container"><h2>Finalizados do Dia</h2><div id="agenda-list" class="agenda-list"></div></div></main>`;
-        renderPendingTasks(tasks, document.getElementById('unassigned-list'));
+        appContainer.innerHTML = `<main id="view-today" class="container view"><div id="unassigned-tasks" class="unassigned-container"></div><div id="dock-board" class="dock-board-container"></div><div id="daily-agenda" class="daily-agenda-container"></div></main>`;
+        renderPendingTasks(tasks, document.getElementById('unassigned-tasks'));
         renderDockBoard(tasks, document.getElementById('dock-board'));
-        renderFinalizados(tasks, document.getElementById('agenda-list'));
+        renderFinalizados(tasks, document.getElementById('daily-agenda'));
         initializeDesktopInteractions();
     }
     
-    // RENDERIZAÇÃO TELEMÓVEL
     function renderMobileTodayView(tasks) {
         appContainer.innerHTML = `
             <main id="view-today" class="container view">
@@ -418,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderMobileNav() {
         const mobileNav = document.getElementById('mobile-menu-content');
         mobileNav.innerHTML = `<a href="#" id="nav-yesterday">Resumo de Ontem</a><a href="#" id="nav-today">Planejamento de Hoje</a><a href="#" id="nav-tomorrow">Previsão de Amanhã</a>`;
+        // A lógica de anexar eventos foi movida para a inicialização principal
     }
     function openMobileMenu() { mobileMenu.classList.add('open'); overlay.classList.add('open'); }
     function closeMobileMenu() { mobileMenu.classList.remove('open'); overlay.classList.remove('open'); }
@@ -452,8 +454,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // INICIALIZAÇÃO DA NAVEGAÇÃO
     setupDayNavigation();
-    const mainNav = document.getElementById('main-nav-desktop');
-    if (mainNav) mainNav.addEventListener('click', handleNavClick);
-    const mobileNav = document.getElementById('mobile-menu-content');
-    if (mobileNav) mobileNav.addEventListener('click', handleNavClick);
 });
