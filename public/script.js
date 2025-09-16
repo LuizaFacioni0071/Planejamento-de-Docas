@@ -1,3 +1,6 @@
+//
+// SCRIPT.JS COM DIAGNÓSTICO
+//
 document.addEventListener('DOMContentLoaded', () => {
     // ESTADO GLOBAL
     let currentView = 'today';
@@ -339,28 +342,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // MODIFICADO: Lógica de clique para celular corrigida e isolada
+    // MODIFICADO: LÓGICA DE CLIQUE COM MENSAGENS DE DEBUG
     function initializeMobileInteractions() {
-        // Listener específico para cards na lista "Pedidos do Dia" -> ABRIR MODAL DE AGENDAMENTO
-        document.querySelectorAll('#content-pedidos .task-card').forEach(card => {
+        console.log('[DEBUG] Iniciando a configuração de interações móveis.');
+
+        const pedidosCards = document.querySelectorAll('#content-pedidos .task-card');
+        console.log(`[DEBUG] Encontrados ${pedidosCards.length} cards em #content-pedidos.`);
+        
+        pedidosCards.forEach(card => {
             card.addEventListener('click', (e) => {
-                if (e.target.closest('button')) return;
+                console.log(`[DEBUG] Clique detectado em card de PEDIDOS. ID: ${card.id}`);
+                if (e.target.closest('button')) {
+                    console.log('[DEBUG] Clique foi em um botão dentro do card, ignorando.');
+                    return;
+                }
+                console.log('[DEBUG] Chamando openScheduleModal...');
                 openScheduleModal(card.id);
             });
         });
 
-        // Listener para cards já alocados (Docas, Pátio móvel) -> ABRIR MODAL DE DETALHES
-        document.querySelectorAll('#content-docas .task-card').forEach(card => {
+        const docasCards = document.querySelectorAll('#content-docas .task-card');
+        console.log(`[DEBUG] Encontrados ${docasCards.length} cards em #content-docas.`);
+
+        docasCards.forEach(card => {
             card.addEventListener('click', (e) => {
-                if (e.target.closest('button')) return;
+                console.log(`[DEBUG] Clique detectado em card de DOCAS/PÁTIO. ID: ${card.id}`);
+                if (e.target.closest('button')) {
+                    console.log('[DEBUG] Clique foi em um botão dentro do card, ignorando.');
+                    return;
+                }
+                console.log('[DEBUG] Chamando openModal...');
                 openModal('details', card.id);
             });
         });
-
-        // Listener para o botão "Não Compareceu" que está em #content-pedidos
-        document.querySelectorAll('#content-pedidos .no-show-btn').forEach(button => {
+        
+        document.querySelectorAll('.no-show-btn').forEach(button => {
             button.addEventListener('click', (e) => {
-                e.stopPropagation(); // Impede que o modal de agendamento abra também
+                e.stopPropagation();
                 const taskId = e.target.dataset.taskId;
                 const task = findTaskById(taskId);
                 if (task && confirm(`Marcar "${task.cliente}" como NÃO COMPARECEU?`)) {
@@ -369,8 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
-
-        // Listeners gerais para outros botões
+        
         document.querySelectorAll('.block-btn').forEach(button => {
             button.addEventListener('click', handleBlockButtonClick);
         });
