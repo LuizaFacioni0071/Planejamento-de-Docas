@@ -339,33 +339,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // MODIFICADO: Lógica de clique restaurada e corrigida
+    // MODIFICADO: Lógica de clique para celular corrigida e isolada
     function initializeMobileInteractions() {
-        // Listener específico para cards na lista de "Pedidos" -> ABRE O MODAL DE AGENDAMENTO
+        // Listener específico para cards na lista "Pedidos do Dia" -> ABRIR MODAL DE AGENDAMENTO
         document.querySelectorAll('#content-pedidos .task-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (e.target.closest('button')) return;
-                // Como este container só tem tarefas 'Aguardando', podemos chamar diretamente.
                 openScheduleModal(card.id);
             });
         });
 
-        // Listener para cards nas docas e na coluna Pátio (móvel) -> ABRE O MODAL DE DETALHES
+        // Listener para cards já alocados (Docas, Pátio móvel) -> ABRIR MODAL DE DETALHES
         document.querySelectorAll('#content-docas .task-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (e.target.closest('button')) return;
                 openModal('details', card.id);
             });
         });
-        
-        // Listener para itens finalizados (sem ação por enquanto)
-        document.querySelectorAll('#content-finalizados .agenda-item').forEach(card => {
-            // Nenhum evento de clique por enquanto, mas pode ser adicionado aqui
+
+        // Listener para o botão "Não Compareceu" que está em #content-pedidos
+        document.querySelectorAll('#content-pedidos .no-show-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation(); // Impede que o modal de agendamento abra também
+                const taskId = e.target.dataset.taskId;
+                const task = findTaskById(taskId);
+                if (task && confirm(`Marcar "${task.cliente}" como NÃO COMPARECEU?`)) {
+                    task.status = 'Não Compareceu';
+                    socket.emit('board:update', { tasks: allTasks, boardData });
+                }
+            });
         });
 
         // Listeners gerais para outros botões
         document.querySelectorAll('.block-btn').forEach(button => {
-             button.addEventListener('click', handleBlockButtonClick);
+            button.addEventListener('click', handleBlockButtonClick);
         });
     }
     
