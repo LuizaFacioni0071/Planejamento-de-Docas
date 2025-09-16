@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeDesktopInteractions();
     }
     
-    // MODIFICADO: RENDERIZAÇÃO TELEMÓVEL SEM ABAS
+    // RENDERIZAÇÃO TELEMÓVEL SEM ABAS
     function renderMobileTodayView(tasks) {
         appContainer.innerHTML = `
             <main id="view-today" class="container view">
@@ -141,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { document.getElementById('report-content').innerHTML = `<p>Ocorreu um erro ao carregar os dados.</p>`; }
     }
     
-    // MODIFICADO: Não insere mais o título H2
     function renderPendingTasks(tasks, container) {
         if (!container) return;
         container.innerHTML = ''; // Limpa a lista para renderização
@@ -234,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // MODIFICADO: Não insere mais o título H2
     function renderFinalizados(tasks, container) {
         if (!container) return;
         container.innerHTML = ''; // Limpa a lista para renderização
@@ -341,20 +339,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // MODIFICADO: Lógica de abas removida
+    // MODIFICADO: Lógica de clique restaurada e corrigida
     function initializeMobileInteractions() {
-        document.querySelectorAll('.task-card').forEach(card => {
+        // Listener específico para cards na lista de "Pedidos" -> ABRE O MODAL DE AGENDAMENTO
+        document.querySelectorAll('#content-pedidos .task-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (e.target.closest('button')) return;
-                const task = findTaskById(card.id);
-                if (task.status === 'Aguardando' || task.status === 'Não Compareceu') {
-                    openScheduleModal(card.id);
-                } else {
-                    openModal('details', card.id);
-                }
+                // Como este container só tem tarefas 'Aguardando', podemos chamar diretamente.
+                openScheduleModal(card.id);
             });
         });
 
+        // Listener para cards nas docas e na coluna Pátio (móvel) -> ABRE O MODAL DE DETALHES
+        document.querySelectorAll('#content-docas .task-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                openModal('details', card.id);
+            });
+        });
+        
+        // Listener para itens finalizados (sem ação por enquanto)
+        document.querySelectorAll('#content-finalizados .agenda-item').forEach(card => {
+            // Nenhum evento de clique por enquanto, mas pode ser adicionado aqui
+        });
+
+        // Listeners gerais para outros botões
         document.querySelectorAll('.block-btn').forEach(button => {
              button.addEventListener('click', handleBlockButtonClick);
         });
